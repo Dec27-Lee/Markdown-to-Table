@@ -430,13 +430,16 @@ function bindCellClickEvents() {
   // 移除之前的事件监听器，避免重复绑定
   tbody.removeEventListener('click', handleCellClick);
   tbody.removeEventListener('mouseover', handleCellMouseOver);
+  tbody.removeEventListener('mousedown', handleMouseDown);
 
   // 添加新的事件监听器
   tbody.addEventListener('click', handleCellClick);
   tbody.addEventListener('mouseover', handleCellMouseOver);
+  tbody.addEventListener('mousedown', handleMouseDown);
 
   // 当前选中的列索引
   let currentHighlightedColIndex = -1;
+  let isDragging = false;
 
   // 处理单元格点击事件的内部函数
   function handleCellClick(e) {
@@ -481,18 +484,67 @@ function bindCellClickEvents() {
     }
   }
 
-  // 处理鼠标悬停事件，用于显示列选择提示
-  function handleCellMouseOver(e) {
+  // 处理鼠标按下事件，用于列拖拽选择
+  function handleMouseDown(e) {
     const cell = e.target.closest('td');
     if (!cell) return;
 
-    // 只有在按下Ctrl键或Shift键时才显示列高亮预览
-    if (e.ctrlKey || e.shiftKey) {
-      const colIndex = parseInt(cell.getAttribute('data-col-index'));
-      if (!isNaN(colIndex) && colIndex !== currentHighlightedColIndex) {
-        // 临时高亮当前列
-        highlightColumn(colIndex, true); // 临时高亮
+    // 如果没有按Ctrl键，直接返回，让浏览器处理默认选择行为
+    if (!e.ctrlKey) {
+      return;
+    }
+
+    e.preventDefault(); // 阻止默认行为，防止全选
+
+    const colIndex = parseInt(cell.getAttribute('data-col-index'));
+    if (isNaN(colIndex)) return;
+
+    isDragging = true;
+
+    // 高亮当前列
+    if (currentHighlightedColIndex !== -1 && currentHighlightedColIndex !== colIndex) {
+      removeColumnHighlight(currentHighlightedColIndex);
+    }
+    highlightColumn(colIndex);
+    currentHighlightedColIndex = colIndex;
+
+    // 获取当前列的所有单元格内容
+    const cellsInCol = document.querySelectorAll(`td[data-col-index="${colIndex}"]`);
+    let columnText = '';
+
+    cellsInCol.forEach((cell, idx) => {
+      if (idx > 0) columnText += '\n'; // 每行内容用换行符分隔
+      const span = cell.querySelector('span');
+      if (span) {
+        columnText += span.textContent || span.innerText;
+      } else {
+        columnText += cell.textContent || cell.innerText;
       }
+    });
+
+    // 创建临时textarea来复制列内容
+    const tempTextArea = document.createElement('textarea');
+    tempTextArea.value = columnText;
+    tempTextArea.style.cssText = 'position: absolute; left: -9999px; opacity: 0;';
+    document.body.appendChild(tempTextArea);
+    tempTextArea.select();
+    document.execCommand('copy');
+    document.body.removeChild(tempTextArea);
+
+    showToast(`已复制列 "${headers[colIndex]}" 的所有内容`);
+  }
+
+  // 处理鼠标悬停事件，用于显示列选择提示
+  function handleCellMouseOver(e) {
+    if (!isDragging) return; // 只在拖拽状态下处理
+
+    const cell = e.target.closest('td');
+    if (!cell) return;
+
+    const colIndex = parseInt(cell.getAttribute('data-col-index'));
+    if (!isNaN(colIndex) && colIndex === currentHighlightedColIndex) {
+      // 保持当前列的高亮状态
+      highlightColumn(colIndex);
     }
   }
 
