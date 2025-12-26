@@ -300,21 +300,24 @@ function renderTable() {
     const sortClass = isSorted ? (sortInfo.state === 'asc' ? 'sort-asc' : 'sort-desc') : '';
     // 根据排序状态显示不同箭头：无排序(↕) -> 升序(▴) -> 降序(▾) -> 无排序(↕)
     const arrow = isSorted ? (sortInfo.state === 'asc' ? ' ▴' : sortInfo.state === 'desc' ? ' ▾' : ' ↕') : ' ↕';
+    // 根据排序状态设置复制按钮颜色
+    const copyBtnColor = isSorted ? (sortInfo.state === 'asc' ? 'var(--primary)' : 'var(--accent)') : 'var(--text)';
     return `
-      <th class="${sortClass}" data-sort-index="${i}">
-        <div style="display: flex; align-items: center; justify-content: space-between;">
-          <span style="flex: 1;">${headers[i]}</span>
-          <button class="copy-header-btn" data-header="${headers[i]}" style="margin-left: 8px; border: none; background: none; cursor: pointer; opacity: 0.5; padding: 2px; width: 16px; height: 16px;" title="复制字段">
-            <svg t="1766735305456" class="copy-icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="16" height="16">
-              <path d="M96.1 575.7a32.2 32.1 0 1 0 64.4 0 32.2 32.1 0 1 0-64.4 0Z" fill="currentColor" p-id="2498"></path>
-              <path d="M742.1 450.7l-269.5-2.1c-14.3-0.1-26 13.8-26 31s11.7 31.3 26 31.4l269.5 2.1c14.3 0.1 26-13.8 26-31s-11.7-31.3-26-31.4zM742.1 577.7l-269.5-2.1c-14.3-0.1-26 13.8-26 31s11.7 31.3 26 31.4l269.5 2.1c14.3 0.2 26-13.8 26-31s-11.7-31.3-26-31.4z" fill="currentColor" p-id="2499"></path>
-              <path d="M736.1 63.9H417c-70.4 0-128 57.6-128 128h-64.9c-70.4 0-128 57.6-128 128v128c-0.1 17.7 14.4 32 32.2 32 17.8 0 32.2-14.4 32.2-32.1V320c0-35.2 28.8-64 64-64H289v447.8c0 70.4 57.6 128 128 128h255.1c-0.1 35.2-28.8 63.8-64 63.8H224.5c-35.2 0-64-28.8-64-64V703.5c0-17.7-14.4-32.1-32.2-32.1-17.8 0-32.3 14.4-32.3 32.1v128.3c0 70.4 57.6 128 128 128h384.1c70.4 0 128-57.6 128-128h65c70.4 0 128-57.6 128-128V255.9l-193-192z m0.1 63.4l127.7 128.3H800c-35.2 0-64-28.8-64-64v-64.3h0.2z m64 641H416.1c-35.2 0-64-28.8-64-64v-513c0-35.2 28.8-64 64-64H671V191c0 70.4 57.6 128 128 128h65.2v385.3c0 35.2-28.8 64-64 64z" fill="currentColor" p-id="2500"></path>
-            </svg>
-          </button>
-          <span style="margin-left: 4px;">${arrow}</span>
-        </div>
-      </th>
-  `;
+          <th class="${sortClass}" data-sort-index="${i}">
+            <div style="display: flex; align-items: center;">
+              <span style="flex: 1;">${headers[i]}</span>
+              <button class="copy-header-btn" data-header="${headers[i]}" style="margin-left: 4px; border: none; background: none; cursor: pointer; opacity: 0.5; padding: 2px; width: 16px; height: 16px;" title="复制字段">
+                <svg t="1766736293870" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+                  <path d="M890.197333 41.984H347.178667C296.832 41.984 256 81.194667 256 129.536v75.861333h86.016V156.928c0-16.128 13.610667-29.184 30.378667-29.184h492.16c16.768 0 30.378667 13.056 30.378666 29.184v539.349333c0 7.68-3.2 15.061333-8.96 20.437334a30.378667 30.378667 0 0 1-21.461333 8.149333H733.866667v85.12h156.245333c50.133333 0 90.88-38.826667 91.178667-86.954667V129.536C981.333333 81.194667 940.501333 41.984 890.197333 41.984z" fill="${copyBtnColor}" p-id="5425"></path>
+                  <path d="M676.864 214.016H133.845333C83.498667 214.016 42.666667 253.226667 42.666667 301.568v75.861333h86.016V328.96c0-16.128 13.610667-29.184 30.378666-29.184h492.16c16.768 0 30.378667 13.056 30.378667 29.184v539.349333c0 7.68-3.2 15.061333-8.96 20.437334a30.378667 30.378667 0 0 1-21.461333 8.149333H520.533333v85.12h156.245334c50.133333 0 90.88-38.826667 91.178666-86.954667V301.568c0.042667-48.341333-40.789333-87.552-91.093333-87.552z" fill="${copyBtnColor}" p-id="5426"></path>
+                  <path d="M42.709333 301.568v593.493333c0.298667 48.128 41.045333 86.954667 91.178667 86.954667H546.133333v-85.12H159.445333a30.378667 30.378667 0 0 1-21.461333-8.149333 27.946667 27.946667 0 0 1-8.96-20.437334V328.96c0-16.128 13.610667-29.184 30.378667-29.184h492.16c16.768 0 30.378667 13.056 30.378666 29.184v48.469333H768V301.568c0-48.341333-40.832-87.552-91.178667-87.552H133.802667c-50.304 0-91.136 39.210667-91.093334 87.552z" fill="${copyBtnColor}" p-id="5427"></path>
+                  <path d="M256 384.682667h298.666667a42.666667 42.666667 0 0 1 0 85.333333H256a42.666667 42.666667 0 0 1 0-85.333333zM256 555.349333h298.666667a42.666667 42.666667 0 0 1 0 85.333334H256a42.666667 42.666667 0 0 1 0-85.333334zM256 726.016h298.666667a42.666667 42.666667 0 0 1 0 85.333333H256a42.666667 42.666667 0 0 1 0-85.333333z" fill="${copyBtnColor}" p-id="5428"></path>
+                </svg>
+              </button>
+              <span style="margin-left: 4px;">${arrow}</span>
+            </div>
+          </th>
+        `;
   }).join('')}</tr>`;
 
   if (thead) thead.innerHTML = theadHTML;
