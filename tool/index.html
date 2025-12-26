@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <!-- 页面元数据 -->
+  <meta charset="UTF-8">
+  <title>Markdown转表格</title>
+  <!-- 样式定义区域 -->
+  <style>
+    :root {
+      /* 深色主题颜色变量 */
+      --bg: linear-gradient(135deg, #0a0a0a 0%, #111827 100%);
+      /* 背景渐变 */
+      --panel: rgba(17, 24, 39, 0.95);
+      /* 面板背景色 */
+      --border: rgba(255, 255, 255, 0.15);
+      /* 边框颜色 */
+      --text: #f9fafb;
+      /* 主要文字颜色 */
+      --text-secondary: #9ca3af;
+      /* 次要文字颜色 */
+      --primary: #3b82f6;
+      /* 主要强调色 */
+      --primary-hover: #2563eb;
+      /* 主要强调色悬停状态 */
+      --accent: #7c3aed;
+      /* 辅助强调色 */
+      --success: #10b981;
+      /* 成功状态颜色 */
+      --json-key: #60a5fa;
+      /* JSON键名颜色 */
+      --json-str: #34d399;
+      /* JSON字符串颜色 */
+      --json-num: #f59e0b;
+      /* JSON数字颜色 */
+      --json-bool: #ec4899;
+      /* JSON布尔值颜色 */
+      --card-bg: rgba(17, 24, 39, 0.8);
+      /* 卡片背景色 */
+      --hover-bg: rgba(59, 130, 246, 0.1);
+      /* 悬停背景色 */
+      --shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+      /* 大阴影 */
+      --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.3);
+      /* 小阴影 */
+      --glass-bg: rgba(17, 24, 39, 0.4);
+      /* 毛玻璃效果背景 */
+    }
+
+    [data-theme="light"] {
+      /* 浅色主题颜色变量 */
+      --bg: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 30%, #e2e8f0 100%);
+      /* 背景渐变 */
+      --panel: rgba(255, 255, 255, 0.95);
+      /* 面板背景色 */
+      --border: rgba(0, 0, 0, 0.08);
+      /* 边框颜色 */
+      --text: #1e293b;
+      /* 主要文字颜色 */
+      --text-secondary: #475569;
+      /* 次要文字颜色 */
+      --primary: #2563eb;
+      /* 主要强调色 */
+      --primary-hover: #1d4ed8;
+      /* 主要强调色悬停状态 */
+      --accent: #7c3aed;
+      /* 辅助强调色 */
+      --success: #059669;
+      /* 成功状态颜色 */
+      --json-key: #1d4ed8;
+      /* JSON键名颜色 */
+      --json-str: #0d9488;
+      /* JSON字符串颜色 */
+      --json-num: #b45309;
+      /* JSON数字颜色 */
+      --json-bool: #dc2626;
+      /* JSON布尔值颜色 */
+      --card-bg: rgba(248, 250, 252, 0.8);
+      /* 卡片背景色 */
+      --hover-bg: rgba(37, 99, 235, 0.08);
+      /* 悬停背景色 */
+      --shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+      /* 大阴影 */
+      --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.08);
+      /* 小阴影 */
+      --glass-bg: rgba(255, 255, 255, 0.6);
+      /* 毛玻璃效果背景 */
+    }
+
+    /* 明亮模式下表头样式优化 */
+    [data-theme="light"] th {
+      background: linear-gradient(to bottom,
+          var(--glass-bg) 0%,
+          rgba(255, 255, 255, 0.95) 100%);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .sidebar {
+      width: 280px;
+      background: var(--panel);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      z-index: 100;
+      box-shadow: var(--shadow);
+      transition: all 0.4s ease;
+    }
+
+    .sidebar-header {
+      padding: 24px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--glass-bg);
+    }
+
+    .sidebar-header h2 {
+      font-size: 22px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin: 0 0 8px 0;
+      font-weight: 700;
+    }
+
+    .sidebar-header h3 {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin: 0 0 20px 0;
+      font-weight: 500;
+    }
+
+    .version-area {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      padding: 6px 8px;
+      border-radius: 6px;
+      transition: all 0.3s ease;
+      width: fit-content;
+    }
+
+    .version-area:hover {
+      background: var(--hover-bg);
+      transform: translateY(-1px);
+    }
+
+    .version-label {
+      color: var(--text-secondary);
+    }
+
+    .version-number {
+      color: var(--primary);
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .version-modal {
+      max-width: 450px;
+      background: var(--panel);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+
+    .close-btn {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--glass-bg);
+      border-radius: 8px;
+      border: none;
+      color: var(--text);
+      cursor: pointer;
+      font-size: 16px;
+      transition: all 0.3s ease;
+    }
+
+    .close-btn:hover {
+      background: var(--hover-bg);
+      transform: scale(1.1);
+    }
+
+    .version-content {
+      padding: 0 24px 24px;
+    }
+
+    .version-link-section {
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      margin-top: 8px;
+    }
+
+    .version-link {
+      display: block;
+      padding: 12px 16px;
+      background: var(--glass-bg);
+      border-radius: 10px;
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .version-link:hover {
+      background: var(--hover-bg);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .main-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      transition: all 0.4s ease;
+    }
+
+    .input-bar {
+      padding: 20px;
+      background: var(--panel);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      border-bottom: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .textarea-container {
+      width: 100%;
+      min-height: 120px;
+      max-height: 600px;
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--card-bg);
+      padding: 16px;
+      box-sizing: border-box;
+      position: relative;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 100px;
+      max-height: 500px;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-family: 'Fira Code', 'SF Mono', Monaco, monospace;
+      font-size: 13px;
+      resize: vertical;
+      /* 启用textarea本身的垂直resize */
+      box-sizing: border-box;
+      outline: none;
+      padding: 0;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+      background: var(--glass-bg);
+    }
+
+    .table-view {
+      flex: 1;
+      overflow: auto;
+      padding: 20px;
+      background: var(--glass-bg);
+      max-height: calc(100vh - 280px);
+      position: relative;
+    }
+
+    .table-scroll-container {
+      max-height: 100%;
+      overflow: auto;
+      position: relative;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px);
+    }
+
+    table {
+      border-collapse: separate;
+      border-spacing: 0;
+      width: max-content;
+      min-width: 100%;
+      background: var(--panel);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      border: 1px solid var(--border);
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: linear-gradient(to bottom,
+          var(--glass-bg) 0%,
+          rgba(17, 24, 39, 0.95) 100%);
+      padding: 16px 20px;
+      font-size: 13px;
+      font-weight: 600;
+      border-bottom: 2px solid var(--primary);
+      text-align: left;
+      cursor: pointer;
+      white-space: nowrap;
+      color: var(--text);
+      backdrop-filter: blur(20px) saturate(200%);
+      -webkit-backdrop-filter: blur(20px) saturate(200%);
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    th:hover {
+      background: var(--hover-bg);
+      color: var(--primary);
+    }
+
+    /* 排序状态指示器样式 */
+    .sort-asc {
+      background: linear-gradient(to bottom,
+          var(--glass-bg) 0%,
+          rgba(37, 99, 235, 0.2) 100%) !important;
+      border-bottom: 2px solid var(--primary) !important;
+    }
+
+    .sort-desc {
+      background: linear-gradient(to bottom,
+          var(--glass-bg) 0%,
+          rgba(124, 58, 237, 0.2) 100%) !important;
+      border-bottom: 2px solid var(--accent) !important;
+    }
+
+    td {
+      padding: 14px 20px;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+      max-width: 320px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    td:not([data-json]):hover {
+      background: var(--hover-bg);
+      color: var(--primary);
+    }
+
+    td:not([data-json]):active {
+      transform: scale(0.99);
+    }
+
+    td[data-json] {
+      cursor: pointer;
+    }
+
+    td[data-json]:hover {
+      background: var(--hover-bg);
+    }
+
+    td:first-child,
+    th:first-child {
+      position: sticky;
+      left: 0;
+      z-index: 50;
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-right: 2px solid var(--border);
+      box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+    }
+
+    /* 明亮模式下第一列样式优化 */
+    [data-theme="light"] td:first-child,
+    [data-theme="light"] th:first-child {
+      box-shadow: 2px 0 3px rgba(0, 0, 0, 0.05);
+    }
+
+    tr:hover td {
+      background: var(--hover-bg);
+    }
+
+    .json-badge {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+      color: white;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 6px;
+      margin-right: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-sm);
+      transition: all 0.2s ease;
+    }
+
+    .json-badge:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(96, 165, 250, 0.3);
+    }
+
+    .modal-mask {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    .modal-box {
+      background: var(--panel);
+      backdrop-filter: blur(30px) saturate(200%);
+      -webkit-backdrop-filter: blur(30px) saturate(200%);
+      width: 100%;
+      max-width: 900px;
+      max-height: 85vh;
+      border-radius: 24px;
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+      animation: springIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      overflow: hidden;
+    }
+
+    @keyframes springIn {
+      from {
+        transform: translateY(40px) scale(0.95);
+        opacity: 0;
+      }
+
+      to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+      }
+    }
+
+    .modal-header {
+      padding: 20px 30px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--glass-bg);
+    }
+
+    .modal-body {
+      padding: 0;
+      overflow: auto;
+      background: var(--card-bg);
+      margin: 24px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      flex: 1;
+    }
+
+    pre {
+      margin: 0;
+      padding: 24px;
+      font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .json-key {
+      color: var(--json-key);
+    }
+
+    .json-string {
+      color: var(--json-str);
+    }
+
+    .json-number {
+      color: var(--json-num);
+    }
+
+    .json-boolean {
+      color: var(--json-bool);
+    }
+
+    .json-null {
+      color: var(--text-secondary);
+    }
+
+    .json-punctuation {
+      color: var(--text-secondary);
+    }
+
+    .btn {
+      padding: 10px 18px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn:hover {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(96, 165, 250, 0.3);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+    }
+
+    #toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--success);
+      color: white;
+      padding: 14px 32px;
+      border-radius: 12px;
+      font-weight: 600;
+      display: none;
+      z-index: 10001;
+      box-shadow: 0 15px 30px rgba(16, 185, 129, 0.3);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      animation: toastIn 0.3s ease forwards;
+    }
+
+    @keyframes toastIn {
+      to {
+        transform: translateX(-50%) translateY(0);
+      }
+    }
+
+    #colSearch {
+      width: 100%;
+      box-sizing: border-box;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 13px;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    #colSearch:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+    }
+
+    #rowSearch {
+      width: 100%;
+      box-sizing: border-box;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 13px;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    #rowSearch:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+    }
+
+    #version {
+      font-size: 12px;
+      color: var(--accent);
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+
+    #version:hover {
+      color: var(--primary);
+      transform: scale(1.05);
+    }
+
+    .stats {
+      font-size: 12px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      padding: 8px 16px;
+      background: var(--card-bg);
+      border-radius: 10px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    .copy-indicator {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: var(--success);
+      color: white;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      z-index: 22;
+    }
+
+    td:not([data-json]):active .copy-indicator {
+      opacity: 1;
+    }
+
+    /* 滚动条样式 */
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--card-bg);
+      border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--primary);
+    }
+  </style>
+</head>
+
+<body data-theme="dark">
+  <!-- 侧边栏容器 -->
+  <aside class="sidebar">
+    <!-- 侧边栏头部区域 -->
+    <div class="sidebar-header">
+      <h2>Markdown转表格</h2>
+      <h3 class="version-area" id="versionArea">
+        <span class="version-label">版本号</span>
+        <span id="version" class="version-number">v3.0.1</span>
+      </h3>
+      <!-- 主题切换按钮 -->
+      <button class="btn" id="toggleThemeBtn" style="width:100%; margin-bottom:10px;">🌓 切换主题模式</button>
+
+      <!-- 列搜索输入框 -->
+      <input type="text" id="colSearch" style="margin-top:20px; text-align:left; cursor:text;" placeholder="🔍 搜索字段...">
+
+      <!-- 全选和清空按钮放在搜索字段下面 -->
+      <div style="display:flex; gap:10px; margin-top:10px;">
+        <!-- 全选字段按钮 -->
+        <button class="btn" id="selectAllBtn" style="flex:1">全选字段</button>
+        <!-- 清空字段按钮 -->
+        <button class="btn" id="clearAllBtn" style="flex:1">清空字段</button>
+      </div>
+
+      <!-- 调试按钮已移除 -->
+    </div>
+    <!-- 列表容器 -->
+    <div id="colList" style="flex:1; overflow-y:auto; padding:15px;"></div>
+  </aside>
+
+  <!-- 主容器 -->
+  <main class="main-container">
+    <!-- 输入栏区域 -->
+    <div class="input-bar">
+      <!-- 文本区域容器 -->
+      <div class="textarea-container">
+        <!-- 原始输入文本框 -->
+        <textarea id="rawInput" placeholder="在此粘贴带 | 的 Markdown 表格数据... (自动识别)"></textarea>
+      </div>
+    </div>
+
+    <!-- 这里不要放全选/清空按钮了 -->
+
+    <!-- 行搜索和统计信息区域 -->
+    <div
+      style="padding: 15px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:15px; background: var(--glass-bg);">
+      <!-- 行搜索输入框 -->
+      <input type="text" id="rowSearch"
+        style="flex:1; text-align:left; cursor:text; padding:12px; box-sizing:border-box;" placeholder="🔍 搜索行内容...">
+      <!-- 统计信息显示 -->
+      <div class="stats" id="stat">等待数据输入...</div>
+    </div>
+
+    <!-- 表格视图区域 -->
+    <div class="table-view">
+      <!-- 表格滚动容器 -->
+      <div class="table-scroll-container">
+        <!-- 主表格 -->
+        <table id="mainTable">
+          <!-- 表头 -->
+          <thead id="thead"></thead>
+          <!-- 表格主体 -->
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- JSON预览模态框 -->
+  <div class="modal-mask" id="jsonOverlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 style="margin:0; font-size:16px; font-weight:600;">📦 JSON 结构化预览</h3>
+        <div class="btn-group">
+          <!-- 复制JSON按钮 -->
+          <button class="btn" id="copyJsonBtn">📋 复制完整 JSON</button>
+          <!-- 关闭JSON模态框按钮 -->
+          <button class="btn" id="closeJsonModalBtn"
+            style="background:rgba(239, 68, 68, 0.1); color:#ef4444;">关闭</button>
+        </div>
+      </div>
+      <!-- JSON显示区域 -->
+      <div class="modal-body">
+        <pre id="jsonDisplay"></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- 版本信息模态框 -->
+  <div class="modal-mask" id="versionOverlay">
+    <div class="modal-box version-modal">
+      <div class="modal-header">
+        <h3 style="margin:0; font-size:16px; font-weight:600;">版本信息 v3.0.1</h3>
+        <!-- 关闭版本模态框按钮 -->
+        <button class="btn close-btn" id="closeVersionModalBtn">✕</button>
+      </div>
+      <!-- 版本信息显示区域 -->
+      <div class="modal-body">
+        <div class="version-content">
+          <h4 style="margin: 16px 0 12px 0; color: var(--primary);">更新内容：</h4>
+          <ul style="margin: 0 0 20px 20px; padding-left: 10px;">
+            <li style="margin-bottom: 8px;">新增单元格点击复制功能</li>
+            <li style="margin-bottom: 8px;">优化毛玻璃效果</li>
+            <li style="margin-bottom: 8px;">增强主题系统</li>
+            <li style="margin-bottom: 8px;">颜色系统重设计</li>
+            <li style="margin-bottom: 8px;">交互动效增强</li>
+            <li style="margin-bottom: 8px;">性能优化提升</li>
+          </ul>
+
+          <div class="version-link-section">
+            <p style="margin: 0 0 10px 0; color: var(--text-secondary);">点击下方链接查看版本日志和下载最新版本：</p>
+            <a href="https://icni4jqv01ut.feishu.cn/wiki/IiZJwKb4ci5IGDkW0yWckV7mnhd?from=from_copylink" target="_blank"
+              class="version-link" onclick="event.stopPropagation();">
+              查看版本日志和下载最新版本 →
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 提示信息 -->
+  <div id="toast">已复制到剪贴板</div>
+
+  <!-- 引入外部JavaScript文件 -->
+  <script src="tool.js"></script>
+</body>
+
+</html>

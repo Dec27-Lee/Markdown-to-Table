@@ -1,0 +1,55 @@
+<!--
+ * @Description: 
+ * @LastEditors: 他们叫我跃总 Dec27-Lee
+ * @Date: 2025-12-25 14:45:55
+ * @LastEditTime: 2025-12-25 14:46:05
+ * @FilePath: \Dec27-Lee.github.iof:\Develop_F\markdown-table-extension\popup.html
+-->
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <!-- 引入弹窗样式表 -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+  <!-- 弹窗容器 -->
+  <div class="popup-container">
+    <!-- 标题 -->
+    <h3>Markdown表格解析器</h3>
+    <!-- 版本信息 -->
+    <p class="version">v3.0.1</p>
+
+    <!-- 打开工具按钮 -->
+    <button id="openTool" class="btn primary">
+      🚀 打开表格工具
+    </button>
+
+    <!-- 分隔线 -->
+    <div class="divider"></div>
+
+    <!-- 使用说明容器 -->
+    <div class="instructions">
+      <!-- 使用说明标题 -->
+      <h4>使用说明：</h4>
+      <!-- 使用说明列表 -->
+      <ol>
+        <li>在网页中选中Markdown表格</li>
+        <li>右键点击选择"解析为表格"</li>
+        <li>或点击此按钮手动粘贴数据</li>
+      </ol>
+    </div>
+
+    <!-- 页脚信息 -->
+    <div class="footer">
+      <p>支持 | 分隔的Markdown表格</p>
+    </div>
+  </div>
+
+  <!-- 引入弹窗脚本 -->
+  <script src="popup.js"></script>
+</body>
+
+</html>
