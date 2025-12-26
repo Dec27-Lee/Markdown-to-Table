@@ -386,6 +386,19 @@
       background: var(--hover-bg);
     }
 
+    /* 列悬停高亮 */
+    td.table-cell:hover {
+      background: var(--hover-bg);
+      color: var(--primary);
+    }
+
+    /* 列选择高亮 */
+    td.table-cell.column-highlight {
+      background: var(--hover-bg);
+      color: var(--primary);
+      transition: all 0.2s ease;
+    }
+
     td:first-child,
     th:first-child {
       position: sticky;
