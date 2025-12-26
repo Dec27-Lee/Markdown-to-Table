@@ -429,44 +429,48 @@ function bindCellClickEvents() {
 
   // 移除之前的事件监听器，避免重复绑定
   tbody.removeEventListener('click', handleCellClick);
-  tbody.removeEventListener('mouseover', handleCellMouseOver);
   tbody.removeEventListener('mousedown', handleMouseDown);
 
   // 添加新的事件监听器
   tbody.addEventListener('click', handleCellClick);
-  tbody.addEventListener('mouseover', handleCellMouseOver);
   tbody.addEventListener('mousedown', handleMouseDown);
 
-  // 当前选中的列索引
-  let currentHighlightedColIndex = -1;
-  let isDragging = false;
+  // 多选功能相关变量
+  let selectedCells = new Set(); // 使用Set来存储选中的单元格，避免重复
 
   // 处理单元格点击事件的内部函数
   function handleCellClick(e) {
-    // 查找最近的td元素
     const cell = e.target.closest('td');
     if (!cell) return;
 
-    // 检查是否按下了Ctrl键或Shift键来选择整列
+    // 检查是否按下了Ctrl键或Shift键来选择多个单元格
     if (e.ctrlKey || e.shiftKey) {
-      // 获取当前单元格的列索引
-      const colIndex = parseInt(cell.getAttribute('data-col-index'));
-      if (!isNaN(colIndex)) {
-        // 如果是同一列再次点击，则取消高亮
-        if (currentHighlightedColIndex === colIndex) {
-          removeColumnHighlight(colIndex);
-          currentHighlightedColIndex = -1;
-        } else {
-          // 清除之前的列高亮
-          if (currentHighlightedColIndex !== -1) {
-            removeColumnHighlight(currentHighlightedColIndex);
-          }
-          // 高亮新列
-          highlightColumn(colIndex);
-          currentHighlightedColIndex = colIndex;
-        }
+      // 如果按住Ctrl或Shift键，进行多选操作
+      e.preventDefault(); // 阻止默认行为
+
+      // 切换单元格选中状态
+      if (selectedCells.has(cell)) {
+        // 如果已选中，则取消选中
+        cell.classList.remove('selected');
+        selectedCells.delete(cell);
+      } else {
+        // 如果未选中，则选中
+        cell.classList.add('selected');
+        selectedCells.add(cell);
       }
+
+      // 如果有选中的单元格，复制它们的内容
+      if (selectedCells.size > 0) {
+        copySelectedCells();
+      }
+
       return;
+    }
+
+    // 如果没有按Ctrl或Shift键，检查是否点击了非选中的单元格
+    if (!selectedCells.has(cell)) {
+      // 如果点击的是非选中的单元格，清除之前的选中状态
+      clearAllSelections();
     }
 
     // 如果是JSON单元格
@@ -484,99 +488,110 @@ function bindCellClickEvents() {
     }
   }
 
-  // 处理鼠标按下事件，用于列拖拽选择
+  // 处理鼠标按下事件
   function handleMouseDown(e) {
     const cell = e.target.closest('td');
     if (!cell) return;
 
-    // 如果没有按Ctrl键，直接返回，让浏览器处理默认选择行为
-    if (!e.ctrlKey) {
-      return;
+    // 如果按下了Ctrl或Shift键，准备进行多选
+    if (e.ctrlKey || e.shiftKey) {
+      e.preventDefault(); // 阻止默认行为，防止全选
     }
+  }
 
-    e.preventDefault(); // 阻止默认行为，防止全选
+  // 清除所有选中状态
+  function clearAllSelections() {
+    selectedCells.forEach(cell => {
+      cell.classList.remove('selected');
+    });
+    selectedCells.clear();
+  }
 
-    const colIndex = parseInt(cell.getAttribute('data-col-index'));
-    if (isNaN(colIndex)) return;
+  // 复制选中单元格的内容
+  function copySelectedCells() {
+    if (selectedCells.size === 0) return;
 
-    isDragging = true;
+    // 按行和列组织选中的单元格，以便保持表格结构
+    const rows = new Map();
+    for (const cell of selectedCells) {
+      const tr = cell.closest('tr');
+      const rowIndex = Array.from(tbody.querySelectorAll('tr')).indexOf(tr);
+      const colIndex = parseInt(cell.getAttribute('data-col-index'));
 
-    // 高亮当前列
-    if (currentHighlightedColIndex !== -1 && currentHighlightedColIndex !== colIndex) {
-      removeColumnHighlight(currentHighlightedColIndex);
-    }
-    highlightColumn(colIndex);
-    currentHighlightedColIndex = colIndex;
-
-    // 获取当前列的所有单元格内容
-    const cellsInCol = document.querySelectorAll(`td[data-col-index="${colIndex}"]`);
-    let columnText = '';
-
-    cellsInCol.forEach((cell, idx) => {
-      if (idx > 0) columnText += '\n'; // 每行内容用换行符分隔
-      const span = cell.querySelector('span');
-      if (span) {
-        columnText += span.textContent || span.innerText;
-      } else {
-        columnText += cell.textContent || cell.innerText;
+      if (!rows.has(rowIndex)) {
+        rows.set(rowIndex, new Map());
       }
+      rows.get(rowIndex).set(colIndex, cell);
+    }
+
+    // 按顺序获取内容并组织成表格格式
+    const sortedRowIndices = Array.from(rows.keys()).sort((a, b) => a - b);
+    let content = '';
+
+    sortedRowIndices.forEach((rowIndex, i) => {
+      const cols = rows.get(rowIndex);
+      const sortedColIndices = Array.from(cols.keys()).sort((a, b) => a - b);
+
+      let rowContent = '';
+      sortedColIndices.forEach((colIndex, j) => {
+        if (j > 0) rowContent += '\t'; // 使用制表符分隔列
+        const cell = cols.get(colIndex);
+
+        // 检查是否为JSON单元格
+        if (cell.hasAttribute('data-json')) {
+          // 对于JSON单元格，获取存储的JSON值
+          rowContent += cell.getAttribute('data-json').replace(/\n/g, ' ');
+        } else {
+          // 对于普通单元格，获取显示的内容
+          const span = cell.querySelector('span');
+          if (span) {
+            rowContent += (span.textContent || span.innerText).replace(/\n/g, ' ');
+          } else {
+            rowContent += (cell.textContent || cell.innerText).replace(/\n/g, ' ');
+          }
+        }
+      });
+
+      if (i > 0) content += '\n'; // 使用换行符分隔行
+      content += rowContent;
     });
 
-    // 创建临时textarea来复制列内容
+    // 创建临时textarea来复制选中单元格的内容
     const tempTextArea = document.createElement('textarea');
-    tempTextArea.value = columnText;
+    tempTextArea.value = content;
     tempTextArea.style.cssText = 'position: absolute; left: -9999px; opacity: 0;';
     document.body.appendChild(tempTextArea);
     tempTextArea.select();
     document.execCommand('copy');
     document.body.removeChild(tempTextArea);
 
-    showToast(`已复制列 "${headers[colIndex]}" 的所有内容`);
+    const cellCount = selectedCells.size;
+    showToast(`已复制 ${cellCount} 个单元格的内容`);
   }
 
-  // 处理鼠标悬停事件，用于显示列选择提示
-  function handleCellMouseOver(e) {
-    if (!isDragging) return; // 只在拖拽状态下处理
-
+  // 添加全局点击事件监听器，用于取消多选状态
+  document.addEventListener('click', (e) => {
+    // 检查点击的是否是表格内的单元格
     const cell = e.target.closest('td');
-    if (!cell) return;
 
-    const colIndex = parseInt(cell.getAttribute('data-col-index'));
-    if (!isNaN(colIndex) && colIndex === currentHighlightedColIndex) {
-      // 保持当前列的高亮状态
-      highlightColumn(colIndex);
+    // 如果点击的不是表格单元格，或者没有按Ctrl/Shift键，则清除选择
+    if (!cell && selectedCells.size > 0) {
+      clearAllSelections();
+    } else if (cell && !e.ctrlKey && !e.shiftKey && !selectedCells.has(cell)) {
+      // 如果点击了表格中的单元格，但没有按Ctrl/Shift键，且不是之前选中的单元格，则清除选择
+      clearAllSelections();
     }
-  }
-
-  // 高亮指定列的所有单元格
-  function highlightColumn(colIndex, isTemp = false) {
-    const allCellsInCol = document.querySelectorAll(`td[data-col-index="${colIndex}"]`);
-    allCellsInCol.forEach(cell => {
-      if (isTemp) {
-        cell.classList.add('column-highlight');
-      } else {
-        cell.classList.add('column-highlight');
-      }
-    });
-  }
-
-  // 移除列高亮
-  function removeColumnHighlight(colIndex) {
-    const allCellsInCol = document.querySelectorAll(`td[data-col-index="${colIndex}"]`);
-    allCellsInCol.forEach(cell => {
-      cell.classList.remove('column-highlight');
-    });
-  }
+  });
 
   // 为已有的单元格添加样式指示
   const cells = tbody.querySelectorAll('td');
   cells.forEach(cell => {
     if (!cell.hasAttribute('data-json')) {
       cell.style.cursor = 'pointer';
-      cell.title = '点击复制，按Ctrl键可选择整列';
+      cell.title = '点击复制单元格，按住Ctrl/Shift键可多选单元格';
     } else {
       cell.style.cursor = 'pointer';
-      cell.title = '点击查看JSON详情，按Ctrl键可选择整列';
+      cell.title = '点击查看JSON详情，按住Ctrl/Shift键可多选单元格';
     }
   });
 }
