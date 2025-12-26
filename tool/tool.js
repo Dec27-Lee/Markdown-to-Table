@@ -329,12 +329,7 @@ function renderTable() {
       e.stopPropagation(); // 阻止事件冒泡，避免触发排序
       const headerValue = btn.getAttribute('data-header');
       navigator.clipboard.writeText(headerValue).then(() => {
-        // 可以添加一个提示，比如临时改变按钮样式
-        const originalText = btn.textContent;
-        btn.textContent = '✓';
-        setTimeout(() => {
-          btn.textContent = originalText;
-        }, 1000);
+        showToast('字段已复制');
       }).catch(err => {
         console.error('复制失败: ', err);
       });
