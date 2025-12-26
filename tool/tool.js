@@ -302,7 +302,13 @@ function renderTable() {
     const arrow = isSorted ? (sortInfo.state === 'asc' ? ' ▴' : sortInfo.state === 'desc' ? ' ▾' : ' ↕') : ' ↕';
     return `
       <th class="${sortClass}" data-sort-index="${i}">
-        ${headers[i]}${arrow}
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span style="flex: 1;">${headers[i]}</span>
+          <button class="copy-header-btn" data-header="${headers[i]}" style="margin-left: 8px; border: none; background: none; cursor: pointer; opacity: 0.5; padding: 2px 4px; font-size: 12px;" title="复制字段">
+            📋
+          </button>
+          <span style="margin-left: 4px;">${arrow}</span>
+        </div>
       </th>
   `;
   }).join('')}</tr>`;
@@ -314,6 +320,34 @@ function renderTable() {
   thElements.forEach(th => {
     const sortIndex = parseInt(th.getAttribute('data-sort-index'));
     th.addEventListener('click', () => applySort(sortIndex));
+  });
+
+  // 绑定表头复制按钮事件
+  const copyHeaderBtns = document.querySelectorAll('.copy-header-btn');
+  copyHeaderBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation(); // 阻止事件冒泡，避免触发排序
+      const headerValue = btn.getAttribute('data-header');
+      navigator.clipboard.writeText(headerValue).then(() => {
+        // 可以添加一个提示，比如临时改变按钮样式
+        const originalText = btn.textContent;
+        btn.textContent = '✓';
+        setTimeout(() => {
+          btn.textContent = originalText;
+        }, 1000);
+      }).catch(err => {
+        console.error('复制失败: ', err);
+      });
+    });
+
+    // 鼠标悬停效果
+    btn.addEventListener('mouseenter', () => {
+      btn.style.opacity = '1';
+    });
+
+    btn.addEventListener('mouseleave', () => {
+      btn.style.opacity = '0.5';
+    });
   });
 
   // 过滤行
