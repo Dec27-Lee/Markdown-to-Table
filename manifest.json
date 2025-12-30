@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Markdown表格解析器",
-  "version": "3.0.2",
-  "description": "快速解析Markdown表格为可视化表格",
+  "version": "3.0.4",
+  "description": "快速解析Markdown表格为可视化表格，支持复杂内容和换行符",
   "permissions": [
     "activeTab",
     "contextMenus",

@@ -161,12 +161,13 @@
 
     .version-label {
       color: var(--text-secondary);
+      font-size: 16px;
     }
 
     .version-number {
       color: var(--primary);
       font-weight: 600;
-      font-size: 14px;
+      font-size: 20px;
     }
 
     .version-modal {
@@ -284,7 +285,7 @@
 
     .table-view {
       flex: 1;
-      overflow: auto;
+      overflow: hidden;
       padding: 20px;
       background: var(--glass-bg);
       max-height: calc(100vh - 280px);
@@ -292,7 +293,7 @@
     }
 
     .table-scroll-container {
-      max-height: 100%;
+      max-height: calc(100vh - 280px);
       overflow: auto;
       position: relative;
       border: 1px solid var(--border);
@@ -304,18 +305,18 @@
     table {
       border-collapse: separate;
       border-spacing: 0;
-      width: max-content;
-      min-width: 100%;
+      width: 100%;
+      min-width: max-content;
       background: var(--panel);
       border-radius: 16px;
-      overflow: hidden;
       box-shadow: var(--shadow);
       backdrop-filter: blur(15px);
       -webkit-backdrop-filter: blur(15px);
       border: 1px solid var(--border);
     }
 
-    th {
+    /* 确保表头在滚动时固定 */
+    thead th {
       position: sticky;
       top: 0;
       z-index: 100;
@@ -335,6 +336,8 @@
       transition: all 0.2s ease;
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     }
+
+
 
     th:hover {
       background: var(--hover-bg);
@@ -407,11 +410,24 @@
       transition: all 0.2s ease;
     }
 
-    td:first-child,
-    th:first-child {
-      position: sticky;
+    /* 第一列数据单元格：左侧固定，z-index低于表头 */
+    td:first-child {
+      position: sticky !important;
       left: 0;
-      z-index: 50;
+      z-index: 99;
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-right: 2px solid var(--border);
+      box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+    }
+
+    /* 第一列表头：左侧和顶部固定，z-index高于普通表头 */
+    th:first-child {
+      position: sticky !important;
+      left: 0;
+      top: 0;
+      z-index: 101;
       background: var(--glass-bg);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
@@ -420,7 +436,10 @@
     }
 
     /* 明亮模式下第一列样式优化 */
-    [data-theme="light"] td:first-child,
+    [data-theme="light"] td:first-child {
+      box-shadow: 2px 0 3px rgba(0, 0, 0, 0.05);
+    }
+
     [data-theme="light"] th:first-child {
       box-shadow: 2px 0 3px rgba(0, 0, 0, 0.05);
     }
@@ -654,7 +673,7 @@
     }
 
     #version {
-      font-size: 12px;
+      font-size: 20px;
       color: var(--accent);
       cursor: pointer;
       font-weight: 600;
@@ -717,6 +736,34 @@
     ::-webkit-scrollbar-thumb:hover {
       background: var(--primary);
     }
+
+    /* 拖拽相关样式 */
+    .col-item.drag-over {
+      background: rgba(59, 130, 246, 0.2) !important;
+      border-color: var(--primary) !important;
+    }
+
+    .drag-handle {
+      transition: opacity 0.2s ease;
+    }
+
+    .drag-handle:hover {
+      opacity: 0.8;
+    }
+
+    .col-item:active {
+      transform: scale(0.98);
+    }
+
+    /* 拖拽插入指示器 */
+    .drop-indicator {
+      position: absolute;
+      height: 4px;
+      background-color: var(--primary);
+      width: 90%;
+      border-radius: 2px;
+      margin: 2px 5% 2px 5%;
+    }
   </style>
 </head>
 
@@ -728,7 +775,7 @@
       <h2>Markdown转表格</h2>
       <h3 class="version-area" id="versionArea">
         <span class="version-label">版本号</span>
-        <span id="version" class="version-number">v3.0.2</span>
+        <span id="version" class="version-number">v3.0.4</span>
       </h3>
       <!-- 主题切换按钮 -->
       <button class="btn" id="toggleThemeBtn" style="width:100%; margin-bottom:10px;">🌓 切换主题模式</button>
@@ -812,26 +859,26 @@
   <div class="modal-mask" id="versionOverlay">
     <div class="modal-box version-modal">
       <div class="modal-header">
-        <h3 style="margin:0; font-size:16px; font-weight:600;">版本信息 v3.0.2</h3>
+        <h3 style="margin:0; font-size:20px; font-weight:600;">版本信息 v3.0.4</h3>
         <!-- 关闭版本模态框按钮 -->
         <button class="btn close-btn" id="closeVersionModalBtn">✕</button>
       </div>
       <!-- 版本信息显示区域 -->
       <div class="modal-body">
         <div class="version-content">
-          <h4 style="margin: 16px 0 12px 0; color: var(--primary);">更新内容：</h4>
-          <ul style="margin: 0 0 20px 20px; padding-left: 10px;">
-            <li style="margin-bottom: 8px;">新增表头复制功能：点击表头复制字段名</li>
-            <li style="margin-bottom: 8px;">新增单元格点击复制功能</li>
-            <li style="margin-bottom: 8px;">优化提示气泡</li>
-            <li style="margin-bottom: 8px;">交互动效增强</li>
-            <li style="margin-bottom: 8px;">性能优化提升</li>
+          <h4 style="margin: 16px 0 12px 0; color: var(--primary); font-size: 18px;">更新内容：</h4>
+          <ul style="margin: 0 0 20px 20px; padding-left: 10px; font-size: 18px;">
+            <li style="margin-bottom: 8px;">[新增] 表头冻结功能 - 垂直滚动时表头保持固定</li>
+            <li style="margin-bottom: 8px;">[新增] 首列冻结功能 - 水平滚动时首列保持固定</li>
+            <li style="margin-bottom: 8px;">[新增] 拖拽列排序功能 - 可通过拖拽调整列的顺序</li>
+            <li style="margin-bottom: 8px;">[新增] 主题记忆功能 - 记住用户选择的深色/浅色模式</li>
+            <li style="margin-bottom: 8px;">[优化] 改进表格渲染性能，支持大量数据展示</li>
           </ul>
 
           <div class="version-link-section">
-            <p style="margin: 0 0 10px 0; color: var(--text-secondary);">点击下方链接查看版本日志和下载最新版本：</p>
+            <p style="margin: 0 0 10px 0; color: var(--text-secondary); font-size: 20px;">点击下方链接查看版本日志和下载最新版本：</p>
             <a href="https://icni4jqv01ut.feishu.cn/wiki/IiZJwKb4ci5IGDkW0yWckV7mnhd?from=from_copylink" target="_blank"
-              class="version-link" onclick="event.stopPropagation();">
+              class="version-link" style="font-size: 20px;" onclick="event.stopPropagation();">
               查看版本日志和下载最新版本 →
             </a>
           </div>

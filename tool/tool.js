@@ -45,6 +45,11 @@ let activeCols = new Set();
 // 存储当前排序信息：列索引、升序/降序、排序状态
 let sortInfo = { idx: -1, asc: true, state: 'none' }; // state: 'none' | 'asc' | 'desc'
 
+// 拖拽相关变量
+let dragSrcEl = null;
+let columnOrder = []; // 存储列的顺序，初始为自然顺序
+let dropIndicator = null; // 拖拽位置指示器
+
 // 清空输入框时清空所有数据和界面
 function clearAllData() {
   console.log('清空所有数据');
@@ -85,11 +90,39 @@ function toggleTheme() {
   // 应用新主题
   document.body.dataset.theme = newTheme;
 
+  // 保存主题选择到浏览器存储
+  try {
+    localStorage.setItem('tableToolTheme', newTheme);
+  } catch (error) {
+    console.warn('无法保存主题设置:', error);
+  }
+
   // 添加主题切换动画
   document.body.style.opacity = '0.8';
   setTimeout(() => {
     document.body.style.opacity = '1';
   }, 150);
+}
+
+// 加载保存的主题设置
+function loadSavedTheme() {
+  try {
+    // 从浏览器存储中获取保存的主题设置
+    const savedTheme = localStorage.getItem('tableToolTheme');
+
+    // 如果有保存的主题设置，则应用它
+    if (savedTheme) {
+      document.body.dataset.theme = savedTheme;
+      console.log('已加载保存的主题:', savedTheme);
+    } else {
+      // 如果没有保存的主题设置，保持默认的深色主题
+      document.body.dataset.theme = 'dark';
+      console.log('使用默认深色主题');
+    }
+  } catch (error) {
+    console.warn('无法加载主题设置，使用默认深色主题:', error);
+    document.body.dataset.theme = 'dark';
+  }
 }
 
 // 处理输入数据的主要函数
@@ -106,45 +139,23 @@ function handleDataInput() {
     return;
   }
 
-  // 预处理：移除所有边框行（包含连续+的行）
-  const processedText = rawText
-    .split('\n')
-    .filter(line => {
-      const trimmed = line.trim();
-      // 过滤掉纯边框行：包含+但不包含字母数字
-      if (trimmed.includes('+') && !trimmed.match(/[a-zA-Z0-9]/)) {
-        return false;
-      }
-      return trimmed.length > 0;
-    })
-    .join('\n');
+  // 使用改进的解析方法来处理包含换行符的表格
+  const parsedResults = parseTableAdvanced(rawText);
 
-  console.log('预处理后的文本:', processedText);
-
-  // 按行分割
-  const lines = processedText.trim().split('\n');
-
-  // 如果行数少于2行（至少需要一行表头和一行数据），显示错误信息并清空数据
-  if (lines.length < 2) {
+  if (parsedResults.length < 1) {
+    console.log('解析结果为空，显示错误');
     showToast('数据格式不正确');
     clearAllData();
     return;
   }
 
-  // 解析表头
-  const parsedHeaders = parseTableLine(lines[0]);
+  // 第一行作为表头
+  const parsedHeaders = parsedResults[0];
+  console.log('解析得到表头:', parsedHeaders);
 
-  // 解析数据行
-  const parsedRows = [];
-  for (let i = 1; i < lines.length; i++) {
-    const row = parseTableLine(lines[i]);
-    // 只有当行的数据列数与表头列数一致时，才添加到结果中
-    if (row.length === parsedHeaders.length) {
-      parsedRows.push(row);
-    }
-  }
-
-  console.log('解析结果:', { parsedHeaders, parsedRows });
+  // 其余行作为数据行
+  const parsedRows = parsedResults.slice(1).filter(row => row.length === parsedHeaders.length && row.length > 0);
+  console.log('解析得到数据行数量:', parsedRows.length, '过滤后:', parsedRows);
 
   // 更新全局数据并渲染
   updateGlobalDataAndRender(parsedHeaders, parsedRows);
@@ -157,6 +168,9 @@ function updateGlobalDataAndRender(newHeaders, newRows) {
   // 更新全局变量
   headers = newHeaders;
   rows = newRows;
+
+  // 初始化列顺序，初始为自然顺序
+  columnOrder = Array.from(headers.keys());
 
   // 重置列选择为全选
   activeCols = new Set(headers.keys());
@@ -179,18 +193,231 @@ function updateGlobalDataAndRender(newHeaders, newRows) {
   showToast(`解析成功: ${rows.length} 行，${headers.length} 列`);
 }
 
-// 解析表格行的函数，处理不同格式的Markdown表格
+// 改进的表格解析函数，能够处理包含换行符的单元格
+function parseTableAdvanced(text) {
+  console.log('开始解析表格文本，总长度:', text.length);
+  const lines = text.split('\n');
+  console.log('分割为', lines.length, '行');
+
+  const result = [];
+
+  // 首先找出所有行，包括表格行和非表格行
+  const allLines = [];
+  for (let j = 0; j < lines.length; j++) {
+    const line = lines[j];
+    const trimmed = line.trim();
+    allLines.push({ index: j, line: trimmed, original: line });
+  }
+
+  console.log('总共', allLines.length, '行待处理');
+
+  // 寻找标准的Markdown表格格式：表头 + 分隔行 + 数据行
+  let headerIndex = -1;
+  let separatorIndex = -1;
+  let firstDataIndex = -1;
+
+  // 先寻找表头和分隔行
+  for (let i = 0; i < allLines.length - 1; i++) {
+    const currentLine = allLines[i].line;
+    const nextLine = allLines[i + 1].line;
+
+    // 检查当前行是否为表格行（以|开头和结尾）
+    if (currentLine.startsWith('|') && currentLine.endsWith('|')) {
+      // 检查下一行是否为分隔行（包含-和|，看起来像:--|:--:|--:）
+      if (nextLine.match(/^\s*\|[+\-:\s|]+\|?\s*$/) ||
+        nextLine.match(/^\s*\|[\-\s:|]+\|?\s*$/) ||
+        nextLine.match(/^\s*[\-\s|:]+\s*$/)) {
+        // 这是一个标准的Markdown表格格式
+        headerIndex = i;
+        separatorIndex = i + 1;
+        firstDataIndex = i + 2; // 数据从分隔行之后开始
+        break;
+      }
+    }
+  }
+
+  let headerCells = [];
+
+  if (headerIndex !== -1 && separatorIndex !== -1) {
+    // 标准Markdown表格格式：有表头和分隔行
+    headerCells = parseTableLine(allLines[headerIndex].line);
+    console.log('标准格式表头解析结果:', headerCells);
+  } else {
+    // 非标准格式，尝试找到最合适的表头
+    console.log('未找到标准Markdown表格格式，尝试寻找最可能的表头');
+
+    // 寻找第一个表格行作为表头
+    for (let i = 0; i < allLines.length; i++) {
+      const line = allLines[i].line;
+      if (line.startsWith('|') && line.endsWith('|') &&
+        !line.match(/^\s*\|[+\-:\s|]+\|?\s*$/) &&  // 不是分隔行
+        !line.match(/^\s*\|[\-\s:|]+\|?\s*$/) &&
+        !line.match(/^\s*[\-\s|:]+\s*$/)) {
+        headerIndex = i;
+        headerCells = parseTableLine(line);
+        firstDataIndex = i + 1;
+        console.log('选择第', i, '行为表头，解析结果:', headerCells);
+        break;
+      }
+    }
+
+    if (headerCells.length === 0) {
+      console.log('未找到合适的表头');
+      return result;
+    }
+  }
+
+  result.push(headerCells);
+  console.log('确定表头，开始寻找数据行，从索引', firstDataIndex, '开始');
+
+  // 从确定的数据行开始，重新构建可能被换行分割的行
+  let i = firstDataIndex;
+  while (i < allLines.length) {
+    let currentLine = allLines[i].line;
+
+    console.log(`检查行 ${i}: "${currentLine}"`);
+
+    // 跳过空行、边框行和分隔行
+    if (!currentLine ||
+      (currentLine.includes('+') && !currentLine.match(/[a-zA-Z0-9]/)) ||
+      currentLine.match(/^\s*\|[+\-:\s|]+\|?\s*$/) ||
+      currentLine.match(/^\s*\|[\-\s:|]+\|?\s*$/) ||
+      currentLine.match(/^\s*[\-\s|:]+\s*$/)) {
+      console.log(`  -> 跳过: 空行、边框或分隔行`);
+      i++;
+      continue;
+    }
+
+    // 如果当前行是表格行（以|开头和结尾），直接解析
+    if (currentLine.startsWith('|') && currentLine.endsWith('|')) {
+      console.log(`  -> 识别为完整表格行`);
+      let parsedCells = parseTableLine(currentLine);
+      console.log(`  -> 解析出 ${parsedCells.length} 个单元格`);
+
+      if (parsedCells.length === headerCells.length) {
+        console.log(`  -> 添加数据行:`, parsedCells);
+        result.push(parsedCells);
+      } else {
+        console.log(`  -> 跳过数据行，列数不匹配: ${parsedCells.length} vs ${headerCells.length}`);
+      }
+      i++;
+    }
+    // 如果当前行不是完整的表格行（只有开头有|，但结尾没有|），说明可能被换行分割了
+    else if (currentLine.startsWith('|') && !currentLine.endsWith('|')) {
+      console.log(`  -> 识别为被分割的表格行，开始合并后续行`);
+
+      let reconstructedLine = currentLine;
+      i++;
+
+      // 继续合并后续行，直到找到以|结尾的行或遇到表格分隔线
+      while (i < allLines.length) {
+        const nextLine = allLines[i].line;
+        console.log(`    检查合并行 ${i}: "${nextLine}"`);
+
+        // 如果下一行以|开头，说明是新的表格行，停止合并
+        if (nextLine.startsWith('|')) {
+          console.log(`    -> 遇到新的表格行，停止合并`);
+          break;
+        }
+
+        // 如果下一行包含表格分隔符特征，也停止合并
+        if (nextLine.includes('+') && !nextLine.match(/[a-zA-Z0-9]/)) {
+          console.log(`    -> 遇到边框行，停止合并`);
+          break;
+        }
+
+        // 合并当前行到重构的行中
+        reconstructedLine += ' ' + nextLine; // 使用空格连接，避免内容粘连
+        console.log(`    -> 合并后: "${reconstructedLine}"`);
+        i++;
+
+        // 如果重构的行现在以|结尾，说明已经完整，可以解析
+        if (reconstructedLine.endsWith('|')) {
+          console.log(`    -> 重构的行现在完整，开始解析`);
+          break;
+        }
+      }
+
+      // 解析重构后的行
+      if (reconstructedLine.startsWith('|') && reconstructedLine.endsWith('|')) {
+        let parsedCells = parseTableLine(reconstructedLine);
+        console.log(`  -> 重构行解析出 ${parsedCells.length} 个单元格`);
+
+        if (parsedCells.length === headerCells.length) {
+          console.log(`  -> 添加重构的数据行:`, parsedCells);
+          result.push(parsedCells);
+        } else {
+          console.log(`  -> 跳过重构的数据行，列数不匹配: ${parsedCells.length} vs ${headerCells.length}`);
+        }
+      } else {
+        console.log(`  -> 重构后的行不是完整的表格行: "${reconstructedLine}"`);
+      }
+    }
+    // 如果当前行不是表格行，跳过
+    else {
+      console.log(`  -> 非表格行，跳过`);
+      i++;
+    }
+  }
+
+  console.log('最终解析结果:', result);
+  return result;
+}
+
+// 解析表格行，能正确处理单元格内容中的|字符
 function parseTableLine(line) {
-  // 处理多种格式：| 列1 | 列2 | 或 列1 | 列2
   const trimmed = line.trim();
   const cells = [];
 
-  // 方法1：如果以|开头和结尾，按|分割
-  if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
-    cells.push(...trimmed.slice(1, -1).split('|').map(c => c.trim()));
-  }
-  // 方法2：否则按|分割，但过滤空值
-  else {
+  if (!trimmed) return cells;
+
+  // 如果行以|开头，使用更复杂的解析逻辑来处理单元格内容中的|字符
+  if (trimmed.startsWith('|')) {
+    // 移除首尾的|字符
+    const content = trimmed.slice(1);
+    let cell = '';
+    let inBraces = 0; // 计数大括号，用于处理JSON等复杂内容
+    let inBrackets = 0; // 计数中括号
+    let inQuotes = false; // 跟踪是否在引号内
+    let quoteChar = null; // 当前引号字符
+
+    for (let i = 0; i < content.length; i++) {
+      const char = content[i];
+
+      // 检查是否是引号开始/结束
+      if ((char === '\'"' || char === "'") && (i === 0 || content[i - 1] !== '\\')) {
+        if (!inQuotes) {
+          inQuotes = true;
+          quoteChar = char;
+        } else if (char === quoteChar) {
+          inQuotes = false;
+          quoteChar = null;
+        }
+      }
+
+      // 如果不在引号内，处理大括号和中括号
+      if (!inQuotes) {
+        if (char === '{') inBraces++;
+        else if (char === '}') inBraces--;
+        else if (char === '[') inBrackets++;
+        else if (char === ']') inBrackets--;
+      }
+
+      // 只有在不在引号内且不在嵌套结构中时，才检查|分隔符
+      if (char === '|' && !inQuotes && inBraces === 0 && inBrackets === 0) {
+        cells.push(cell.trim());
+        cell = '';
+      } else {
+        cell += char;
+      }
+    }
+
+    // 添加最后一个单元格
+    if (cell !== '') {
+      cells.push(cell.trim());
+    }
+  } else {
+    // 如果不是以|开头，按原方式处理
     cells.push(...trimmed.split('|').map(c => c.trim()).filter(c => c));
   }
 
@@ -209,21 +436,45 @@ function renderSidebar() {
     return;
   }
 
+  // 根据是否在搜索模式决定渲染顺序
+  let renderOrder;
+  if (q) {
+    // 搜索模式下，显示所有匹配的列，按原始顺序
+    renderOrder = headers.map((h, i) => i);
+  } else {
+    // 非搜索模式下，按columnOrder顺序显示
+    renderOrder = [...columnOrder];
+  }
+
   // 生成列列表的HTML
-  const html = headers.map((h, i) => {
+  const html = renderOrder.map(colIndex => {
+    const h = headers[colIndex];
     // 如果有搜索内容且列名不包含搜索内容，则跳过
     if (q && !h.toLowerCase().includes(q)) return '';
     // 检查该列是否被选中
-    const on = activeCols.has(i);
+    const on = activeCols.has(colIndex);
     return `
-      <div class="col-item" data-col-index="${i}" style="display:flex; align-items:center; padding:10px; border-radius:10px; margin-bottom:6px; cursor:pointer; background:${on ? 'rgba(96, 165, 250, 0.1)' : 'transparent'}; border:1px solid ${on ? 'var(--primary)' : 'var(--border)'}; transition:all 0.2s ease;">
+      <div class="col-item" data-col-index="${colIndex}" draggable="true" style="display:flex; align-items:center; padding:10px; border-radius:10px; margin-bottom:6px; cursor:move; background:${on ? 'rgba(96, 165, 250, 0.1)' : 'transparent'}; border:1px solid ${on ? 'var(--primary)' : 'var(--border)'}; transition:all 0.2s ease;">
         <div style="width:16px; height:16px; border-radius:4px; border:2px solid ${on ? 'var(--primary)' : 'var(--border)'}; margin-right:12px; display:flex; align-items:center; justify-content:center; background:${on ? 'var(--primary)' : 'transparent'}; transition:all 0.2s ease;">
           ${on ? '✓' : ''}
         </div>
-        <span style="font-size:13px; color:${on ? 'var(--primary)' : 'var(--text)'}; font-weight:${on ? '600' : '400'}">${h}</span>
+        <span style="font-size:13px; color:${on ? 'var(--primary)' : 'var(--text)'}; flex-grow:1; font-weight:${on ? '600' : '400'}">${h}</span>
+        <div class="drag-handle" style="margin-left:10px; opacity:0.5; cursor:move;">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 5C3 4.44772 3.44772 4 4 4C4.55228 4 5 4.44772 5 5C5 5.55228 4.55228 6 4 6C3.44772 6 3 5.55228 3 5Z" fill="currentColor"/>
+            <path d="M3 9C3 8.44772 3.44772 8 4 8C4.55228 8 5 8.44772 5 9C5 9.55228 4.55228 10 4 10C3.44772 10 3 9.55228 3 9Z" fill="currentColor"/>
+            <path d="M3 13C3 12.4477 3.44772 12 4 12C4.55228 12 5 12.4477 5 13C5 13.5523 4.55228 14 4 14C3.44772 14 3 13.5523 3 13Z" fill="currentColor"/>
+            <path d="M8 5C8 4.44772 8.44772 4 9 4C9.55228 4 10 4.44772 10 5C10 5.55228 9.55228 6 9 6C8.44772 6 8 5.55228 8 5Z" fill="currentColor"/>
+            <path d="M8 9C8 8.44772 8.44772 8 9 8C9.55228 8 10 8.44772 10 9C10 9.55228 9.55228 10 9 10C8.44772 10 8 9.55228 8 9Z" fill="currentColor"/>
+            <path d="M8 13C8 12.4477 8.44772 12 9 12C9.55228 12 10 12.4477 10 13C10 13.5523 9.55228 14 9 14C8.44772 14 8 13.5523 8 13Z" fill="currentColor"/>
+            <path d="M13 5C13 4.44772 13.4477 4 14 4C14.5523 4 15 4.44772 15 5C15 5.55228 14.5523 6 14 6C13.4477 6 13 5.55228 13 5Z" fill="currentColor"/>
+            <path d="M13 9C13 8.44772 13.4477 8 14 8C14.5523 8 15 8.44772 15 9C15 9.55228 14.5523 10 14 10C13.4477 10 13 9.55228 13 9Z" fill="currentColor"/>
+            <path d="M13 13C13 12.4477 13.4477 12 14 12C14.5523 12 15 12.4477 15 13C15 13.5523 14.5523 14 14 14C13.4477 14 13 13.5523 13 13Z" fill="currentColor"/>
+          </svg>
+        </div>
       </div>
     `;
-  }).join('');
+  }).filter(item => item !== '').join(''); // 过滤掉空字符串
 
   colListDiv.innerHTML = html;
 
@@ -231,8 +482,193 @@ function renderSidebar() {
   const colItems = colListDiv.querySelectorAll('.col-item');
   colItems.forEach(item => {
     const colIndex = parseInt(item.getAttribute('data-col-index'));
-    item.addEventListener('click', () => toggleCol(colIndex));
+
+    // 添加拖拽事件监听器
+    item.addEventListener('dragstart', handleDragStart);
+    item.addEventListener('dragover', handleDragOver);
+    item.addEventListener('dragenter', handleDragEnter);
+    item.addEventListener('dragleave', handleDragLeave);
+    item.addEventListener('drop', handleDrop);
+    item.addEventListener('dragend', handleDragEnd);
+
+    // 保持原有的点击事件
+    item.addEventListener('click', (e) => {
+      // 如果点击的是拖拽手柄，则不触发列选择
+      if (!e.target.classList.contains('drag-handle')) {
+        toggleCol(colIndex);
+      }
+    });
   });
+}
+
+// 拖拽事件处理函数
+function handleDragStart(e) {
+  dragSrcEl = e.target;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/html', e.target.innerHTML);
+}
+
+function handleDragOver(e) {
+  if (e.preventDefault) {
+    e.preventDefault();
+  }
+  e.dataTransfer.dropEffect = 'move';
+
+  // 计算插入位置并显示指示器
+  if (dragSrcEl) {
+    const destElement = e.target.closest('.col-item');
+    if (destElement && destElement !== dragSrcEl) {
+      // 计算插入位置
+      const rect = destElement.getBoundingClientRect();
+      const offsetY = e.clientY - rect.top;
+      const height = rect.height;
+      const isBottomHalf = offsetY > height / 2;
+
+      // 创建或更新指示器
+      if (!dropIndicator) {
+        dropIndicator = document.createElement('div');
+        dropIndicator.className = 'drop-indicator';
+      }
+
+      // 确定指示器位置
+      const container = destElement.parentElement;
+      if (isBottomHalf) {
+        // 插入到目标元素之后
+        const nextSibling = destElement.nextSibling;
+        if (nextSibling) {
+          container.insertBefore(dropIndicator, nextSibling);
+        } else {
+          container.appendChild(dropIndicator);
+        }
+      } else {
+        // 插入到目标元素之前
+        container.insertBefore(dropIndicator, destElement);
+      }
+    }
+  }
+
+  return false;
+}
+
+function handleDragEnter(e) {
+  this.classList.add('drag-over');
+}
+
+function handleDragLeave(e) {
+  this.classList.remove('drag-over');
+
+  // 移除拖拽指示器（但不是在每次离开子元素时都移除，只有在真正离开容器时才移除）
+  if (dropIndicator && dropIndicator.parentElement) {
+    const relatedTarget = e.relatedTarget;
+    if (!relatedTarget || !this.contains(relatedTarget)) {
+      dropIndicator.parentElement.removeChild(dropIndicator);
+      dropIndicator = null;
+    }
+  }
+}
+
+function handleDrop(e) {
+  if (e.stopPropagation) {
+    e.stopPropagation();
+  }
+
+  // 找到最近的col-item元素作为目标
+  const destElement = e.target.closest('.col-item');
+  if (dragSrcEl !== destElement && destElement) {
+    // 获取源列和目标列的索引
+    const srcIndex = parseInt(dragSrcEl.getAttribute('data-col-index'));
+    const destIndex = parseInt(destElement.getAttribute('data-col-index'));
+
+    if (!isNaN(srcIndex) && !isNaN(destIndex) && srcIndex !== destIndex) {
+      // 只在非搜索模式下进行排序
+      const q = document.getElementById('colSearch').value.toLowerCase();
+      if (!q) {
+        // 在非搜索模式下，用户看到的顺序就是columnOrder的顺序
+        // 所以我们需要找到这两个列在columnOrder中的位置
+        const srcOrderIndex = columnOrder.indexOf(srcIndex);
+        const destOrderIndex = columnOrder.indexOf(destIndex);
+
+        if (srcOrderIndex !== -1 && destOrderIndex !== -1) {
+          // 计算实际插入位置 - 根据dropIndicator的位置
+          let insertIndex = destOrderIndex;
+          if (dropIndicator) {
+            // 获取dropIndicator在容器中的位置来确定插入索引
+            const container = destElement.parentElement;
+            const allItems = Array.from(container.children);
+            insertIndex = allItems.indexOf(dropIndicator);
+
+            // 由于侧边栏现在是按照columnOrder渲染的，我们需要将insertIndex转换为columnOrder中的索引
+            // 获取dropIndicator前一个元素的data-col-index
+            const prevElement = dropIndicator.previousElementSibling;
+            if (prevElement && prevElement.classList.contains('col-item')) {
+              const prevColIndex = parseInt(prevElement.getAttribute('data-col-index'));
+              const prevOrderIndex = columnOrder.indexOf(prevColIndex);
+              if (prevOrderIndex !== -1) {
+                insertIndex = prevOrderIndex + 1;
+              }
+            } else {
+              // 如果dropIndicator是第一个元素，或前面没有col-item，则插入到开头
+              const nextElement = dropIndicator.nextElementSibling;
+              if (nextElement && nextElement.classList.contains('col-item')) {
+                const nextColIndex = parseInt(nextElement.getAttribute('data-col-index'));
+                const nextOrderIndex = columnOrder.indexOf(nextColIndex);
+                if (nextOrderIndex !== -1) {
+                  insertIndex = nextOrderIndex;
+                }
+              }
+            }
+          }
+
+          if (insertIndex < 0) insertIndex = 0;
+          if (insertIndex > columnOrder.length) insertIndex = columnOrder.length;
+
+          // 创建新的数组来避免索引问题
+          const newColumnOrder = [...columnOrder];
+          // 从原位置移除元素
+          const [movedItem] = newColumnOrder.splice(srcOrderIndex, 1);
+
+          // 调整插入索引，因为移除元素后索引可能发生变化
+          const adjustedInsertIndex = insertIndex > srcOrderIndex ? insertIndex - 1 : insertIndex;
+
+          // 在目标位置插入元素
+          newColumnOrder.splice(adjustedInsertIndex, 0, movedItem);
+
+          // 更新全局columnOrder数组
+          columnOrder = newColumnOrder;
+
+          // 重新渲染侧边栏和表格以反映列的新顺序
+          renderSidebar();
+          renderTable();
+        }
+      } else {
+        // 搜索模式下不进行排序，只更新表格显示
+        renderTable();
+      }
+    }
+  }
+
+  // 移除拖拽指示器
+  if (dropIndicator && dropIndicator.parentElement) {
+    dropIndicator.parentElement.removeChild(dropIndicator);
+    dropIndicator = null;
+  }
+
+  return false;
+}
+
+function handleDragEnd(e) {
+  const items = document.querySelectorAll('.col-item.drag-over');
+  items.forEach(item => {
+    item.classList.remove('drag-over');
+  });
+
+  // 移除拖拽指示器
+  if (dropIndicator && dropIndicator.parentElement) {
+    dropIndicator.parentElement.removeChild(dropIndicator);
+    dropIndicator = null;
+  }
+
+  dragSrcEl = null;
 }
 
 // 设置所有列的显示或隐藏状态
@@ -262,8 +698,12 @@ function htmlEscapeAttr(str) {
 function renderTable() {
   // 获取行搜索框的查询内容
   const q = document.getElementById('rowSearch').value.toLowerCase();
-  // 获取当前激活的列索引数组并排序
-  const activeIdxs = Array.from(activeCols).sort((a, b) => a - b);
+  // 获取当前激活的列索引数组并根据 columnOrder 排序
+  const activeIdxs = Array.from(activeCols).sort((a, b) => {
+    const aOrder = columnOrder.indexOf(a);
+    const bOrder = columnOrder.indexOf(b);
+    return aOrder - bOrder;
+  });
 
   // 获取表头元素
   const thead = document.getElementById('thead');
@@ -764,6 +1204,9 @@ window.copyJsonInModal = copyJsonInModal;
 document.addEventListener('DOMContentLoaded', () => {
   console.log('DOM已加载，开始绑定事件');
 
+  // 加载用户上次选择的主题，如果没有则使用默认的深色主题
+  loadSavedTheme();
+
   // 绑定主题切换按钮
   const toggleThemeBtn = document.getElementById('toggleThemeBtn');
   if (toggleThemeBtn) {
@@ -948,7 +1391,6 @@ document.addEventListener('DOMContentLoaded', () => {
   setTimeout(() => {
     bindCellClickEvents();
   }, 1000);
-
 
 
 });
