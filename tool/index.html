@@ -472,8 +472,8 @@
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.8);
-      backdrop-filter: blur(20px);
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(20px);
       z-index: 9999;
       align-items: center;
@@ -764,6 +764,369 @@
       border-radius: 2px;
       margin: 2px 5% 2px 5%;
     }
+
+    /* 搜索栏容器样式 */
+    .search-bar-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      background: var(--panel);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      border-bottom: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      position: relative;
+      z-index: 10000;
+    }
+
+    /* 统计信息区域 */
+    .stats {
+      margin-left: auto;
+      /* 将统计信息推到右侧 */
+      flex-shrink: 0;
+      /* 防止统计信息被压缩 */
+    }
+
+    /* 字段选择器容器 */
+    .field-selector-container {
+      position: relative;
+      display: inline-block;
+      width: 140px;
+    }
+
+    /* 字段选择器样式 */
+    .field-selector {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      min-width: 120px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .field-selector:hover {
+      background: var(--hover-bg);
+      border-color: var(--primary);
+      color: var(--primary);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+    }
+
+    .field-selector:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+    }
+
+    .field-selector:active {
+      transform: translateY(0);
+    }
+
+    .field-selector.open {
+      border-color: var(--primary);
+      background: rgba(59, 130, 246, 0.1);
+    }
+
+    /* 响应式设计优化 */
+    @media (max-width: 768px) {
+      .search-bar-container {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+      }
+
+      .field-selector-container {
+        width: 100%;
+        max-width: 200px;
+      }
+
+      .search-input {
+        max-width: 100%;
+        width: 100%;
+      }
+
+      .field-dropdown {
+        width: 100%;
+        min-width: 200px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .search-bar-container {
+        padding: 12px 15px;
+      }
+
+      .field-selector-container {
+        max-width: 150px;
+      }
+
+      .field-selector {
+        padding: 8px 10px;
+        font-size: 12px;
+      }
+
+      .field-option {
+        padding: 8px 10px;
+        font-size: 12px;
+      }
+
+      .field-dropdown {
+        min-width: 150px;
+        max-width: 100%;
+      }
+    }
+
+    /* 选择器箭头样式 */
+    .selector-arrow {
+      font-size: 10px;
+      color: var(--text-secondary);
+      transition: transform 0.2s ease;
+    }
+
+    .field-selector:hover .selector-arrow {
+      color: var(--primary);
+    }
+
+    /* 字段下拉菜单样式 */
+    .field-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      width: 100%;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25), var(--shadow-sm);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      z-index: 99999;
+      max-height: 250px;
+      overflow-y: auto;
+      display: none;
+      margin-top: 8px;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-10px) scale(0.98);
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-sizing: border-box;
+    }
+
+    /* 优化滚动条样式 */
+    .field-dropdown::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .field-dropdown::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.4);
+      border-radius: 4px;
+      margin: 4px 0;
+    }
+
+    .field-dropdown::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.5);
+      border-radius: 4px;
+    }
+
+    .field-dropdown::-webkit-scrollbar-thumb:hover {
+      background: var(--primary);
+    }
+
+    .field-dropdown.show {
+      display: block;
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0) scale(1);
+    }
+
+    /* 选择器箭头样式 */
+    .selector-arrow {
+      font-size: 10px;
+      color: var(--text-secondary);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .field-selector:hover .selector-arrow {
+      color: var(--primary);
+    }
+
+    .field-selector.open .selector-arrow {
+      transform: rotate(180deg);
+    }
+
+    /* 字段选项样式 */
+    .field-option {
+      padding: 12px 16px;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text);
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      position: relative;
+    }
+
+    .field-option:last-child {
+      border-bottom: none;
+      border-radius: 0 0 12px 12px;
+    }
+
+    .field-option:hover {
+      background: var(--hover-bg);
+      color: var(--primary);
+      padding-left: 20px;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .field-option.selected {
+      background: linear-gradient(90deg, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.1));
+      color: var(--primary);
+      font-weight: 500;
+    }
+
+    .field-option.selected:hover {
+      background: linear-gradient(90deg, rgba(59, 130, 246, 0.25), rgba(59, 130, 246, 0.15));
+    }
+
+    /* 激活状态样式 */
+    .field-option:active {
+      transform: translateX(2px) scale(0.99);
+      background: rgba(59, 130, 246, 0.25);
+    }
+
+    /* 字段搜索输入框样式 */
+    .field-search-input {
+      width: calc(100% - 16px);
+      margin: 8px 8px 0 8px;
+      padding: 10px 12px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+      transition: all 0.3s ease;
+      box-sizing: border-box;
+    }
+
+    .field-search-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2);
+    }
+
+    /* 明亮模式下字段搜索输入框样式优化 */
+    [data-theme="light"] .field-search-input {
+      background: rgba(255, 255, 255, 0.8);
+    }
+
+    /* 字段选项容器样式 */
+    .field-options-container {
+      max-height: 180px;
+      overflow-y: auto;
+      margin-top: 4px;
+    }
+
+    /* 为搜索输入框添加滚动条样式 */
+    .field-options-container::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .field-options-container::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.4);
+      border-radius: 4px;
+      margin: 4px 0;
+    }
+
+    .field-options-container::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.5);
+      border-radius: 4px;
+    }
+
+    .field-options-container::-webkit-scrollbar-thumb:hover {
+      background: var(--primary);
+    }
+
+    /* 搜索输入框样式 */
+    .search-input {
+      flex: 1;
+      /* 让搜索框占据可用空间 */
+      min-width: 150px;
+      /* 设置最小宽度 */
+      max-width: 100%;
+      /* 设置最大宽度为100%，允许完全自适应 */
+      box-sizing: border-box;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 13px;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+    }
+
+    /* 响应式设计优化 */
+    @media (max-width: 768px) {
+      .search-bar-container {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+      }
+
+      .field-selector-container {
+        width: 100%;
+        max-width: 200px;
+      }
+
+      .search-input {
+        max-width: 100%;
+        width: 100%;
+      }
+
+      .field-dropdown {
+        width: 100%;
+        min-width: 200px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .search-bar-container {
+        padding: 12px 15px;
+      }
+
+      .field-selector-container {
+        max-width: 150px;
+      }
+
+      .field-selector {
+        padding: 8px 10px;
+        font-size: 12px;
+      }
+
+      .field-option {
+        padding: 8px 10px;
+        font-size: 12px;
+      }
+    }
   </style>
 </head>
 
@@ -775,7 +1138,7 @@
       <h2>Markdown转表格</h2>
       <h3 class="version-area" id="versionArea">
         <span class="version-label">版本号</span>
-        <span id="version" class="version-number">v3.0.4</span>
+        <span id="version" class="version-number">v3.0.5</span>
       </h3>
       <!-- 主题切换按钮 -->
       <button class="btn" id="toggleThemeBtn" style="width:100%; margin-bottom:10px;">🌓 切换主题模式</button>
@@ -811,11 +1174,22 @@
     <!-- 这里不要放全选/清空按钮了 -->
 
     <!-- 行搜索和统计信息区域 -->
-    <div
-      style="padding: 15px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:15px; background: var(--glass-bg);">
+    <div class="search-bar-container">
+      <!-- 字段选择下拉框 -->
+      <div class="field-selector-container">
+        <div id="fieldSelector" class="field-selector">
+          <span id="selectedField">全部字段</span>
+          <span class="selector-arrow">▼</span>
+        </div>
+        <div id="fieldDropdown" class="field-dropdown">
+          <input type="text" id="fieldSearchInput" class="field-search-input" placeholder="搜索字段..." />
+          <div id="fieldOptionsContainer" class="field-options-container">
+            <div class="field-option" data-field="全部字段">全部字段</div>
+          </div>
+        </div>
+      </div>
       <!-- 行搜索输入框 -->
-      <input type="text" id="rowSearch"
-        style="flex:1; text-align:left; cursor:text; padding:12px; box-sizing:border-box;" placeholder="🔍 搜索行内容...">
+      <input type="text" id="rowSearch" class="search-input" placeholder="🔍 搜索行内容...">
       <!-- 统计信息显示 -->
       <div class="stats" id="stat">等待数据输入...</div>
     </div>
@@ -859,7 +1233,7 @@
   <div class="modal-mask" id="versionOverlay">
     <div class="modal-box version-modal">
       <div class="modal-header">
-        <h3 style="margin:0; font-size:20px; font-weight:600;">版本信息 v3.0.4</h3>
+        <h3 style="margin:0; font-size:20px; font-weight:600;">版本信息 v3.0.5</h3>
         <!-- 关闭版本模态框按钮 -->
         <button class="btn close-btn" id="closeVersionModalBtn">✕</button>
       </div>
@@ -868,11 +1242,9 @@
         <div class="version-content">
           <h4 style="margin: 16px 0 12px 0; color: var(--primary); font-size: 18px;">更新内容：</h4>
           <ul style="margin: 0 0 20px 20px; padding-left: 10px; font-size: 18px;">
-            <li style="margin-bottom: 8px;">[新增] 表头冻结功能 - 垂直滚动时表头保持固定</li>
-            <li style="margin-bottom: 8px;">[新增] 首列冻结功能 - 水平滚动时首列保持固定</li>
-            <li style="margin-bottom: 8px;">[新增] 拖拽列排序功能 - 可通过拖拽调整列的顺序</li>
-            <li style="margin-bottom: 8px;">[新增] 主题记忆功能 - 记住用户选择的深色/浅色模式</li>
-            <li style="margin-bottom: 8px;">[优化] 改进表格渲染性能，支持大量数据展示</li>
+            <li style="margin-bottom: 8px;">[新增] 内容搜索支持指定某个字段进行内容筛选</li>
+            <li style="margin-bottom: 8px;">[新增] 支持在下拉菜单中搜索字段</li>
+            <li style="margin-bottom: 8px;">[优化] 页面UI样式优化</li>
           </ul>
 
           <div class="version-link-section">

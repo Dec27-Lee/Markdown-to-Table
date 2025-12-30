@@ -50,6 +50,9 @@ let dragSrcEl = null;
 let columnOrder = []; // 存储列的顺序，初始为自然顺序
 let dropIndicator = null; // 拖拽位置指示器
 
+// 搜索字段选择相关变量
+let currentSearchField = '全部字段'; // 当前选择的搜索字段，默认为全部字段
+
 // 清空输入框时清空所有数据和界面
 function clearAllData() {
   console.log('清空所有数据');
@@ -696,6 +699,9 @@ function htmlEscapeAttr(str) {
 
 // 渲染主表格
 function renderTable() {
+  // 更新字段下拉菜单选项
+  updateFieldDropdown();
+
   // 获取行搜索框的查询内容
   const q = document.getElementById('rowSearch').value.toLowerCase();
   // 获取当前激活的列索引数组并根据 columnOrder 排序
@@ -795,12 +801,23 @@ function renderTable() {
   // 过滤行
   let filteredRows = rows.filter(r => {
     if (!q) return true;
-    return r.some((cell, idx) => {
-      // 只检查活跃列
-      if (!activeCols.has(idx)) return false;
-      const cellText = cell ? String(cell).toLowerCase() : '';
+
+    if (currentSearchField === '全部字段') {
+      // 在所有激活列中搜索
+      return r.some((cell, idx) => {
+        // 只检查活跃列
+        if (!activeCols.has(idx)) return false;
+        const cellText = cell ? String(cell).toLowerCase() : '';
+        return cellText.includes(q);
+      });
+    } else {
+      // 只在选定字段中搜索
+      const fieldIndex = headers.indexOf(currentSearchField);
+      // 检查字段是否存在且在激活列中
+      if (fieldIndex === -1 || !activeCols.has(fieldIndex)) return false;
+      const cellText = r[fieldIndex] ? String(r[fieldIndex]).toLowerCase() : '';
       return cellText.includes(q);
-    });
+    }
   });
 
   // 应用排序
@@ -860,6 +877,55 @@ function renderTable() {
   bindCellClickEvents();
 }
 
+// 更新字段下拉菜单选项
+function updateFieldDropdown() {
+  const fieldDropdown = document.getElementById('fieldDropdown');
+  if (!fieldDropdown) return;
+
+  // 清空现有内容
+  fieldDropdown.innerHTML = `
+    <input type="text" id="fieldSearchInput" class="field-search-input" placeholder="搜索字段..." />
+    <div id="fieldOptionsContainer" class="field-options-container">
+      <div class="field-option" data-field="全部字段">全部字段</div>
+    </div>
+  `;
+
+  // 添加激活的字段选项
+  const fieldOptionsContainer = document.getElementById('fieldOptionsContainer');
+  for (const idx of activeCols) {
+    const header = headers[idx];
+    if (header) {
+      const option = document.createElement('div');
+      option.className = 'field-option';
+      option.setAttribute('data-field', header);
+      option.textContent = header;
+      fieldOptionsContainer.appendChild(option);
+    }
+  }
+
+  // 绑定搜索输入框事件
+  const fieldSearchInput = document.getElementById('fieldSearchInput');
+  if (fieldSearchInput) {
+    fieldSearchInput.addEventListener('input', filterFieldOptions);
+  }
+}
+
+// 过滤字段选项
+function filterFieldOptions() {
+  const searchInput = document.getElementById('fieldSearchInput');
+  const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+  const optionsContainer = document.getElementById('fieldOptionsContainer');
+  const options = optionsContainer ? optionsContainer.querySelectorAll('.field-option') : [];
+
+  options.forEach(option => {
+    const fieldText = option.textContent.toLowerCase();
+    if (fieldText.includes(searchTerm)) {
+      option.style.display = 'flex'; // 显示匹配的选项
+    } else {
+      option.style.display = 'none'; // 隐藏不匹配的选项
+    }
+  });
+}
 
 
 // 绑定单元格点击事件
@@ -1176,12 +1242,34 @@ function escapeHtml(text) {
 
 // 显示版本信息模态框
 function showVersion() {
+  // 关闭所有可能打开的下拉菜单，避免它们显示在版本弹窗之上
+  const fieldSelector = document.getElementById('fieldSelector');
+  const fieldDropdown = document.getElementById('fieldDropdown');
+  if (fieldSelector) {
+    fieldSelector.classList.remove('open');
+  }
+  if (fieldDropdown) {
+    fieldDropdown.classList.remove('show');
+  }
+
   document.getElementById('versionOverlay').style.display = 'flex';
+
+  // 确保版本弹窗的遮罩层在所有其他元素之上
+  const versionOverlay = document.getElementById('versionOverlay');
+  if (versionOverlay) {
+    versionOverlay.style.zIndex = '99999';
+  }
 }
 
 // 关闭版本信息模态框
 function closeVersionModal() {
   document.getElementById('versionOverlay').style.display = 'none';
+
+  // 恢复版本弹窗遮罩层的原始z-index
+  const versionOverlay = document.getElementById('versionOverlay');
+  if (versionOverlay) {
+    versionOverlay.style.zIndex = ''; // 恢复为CSS中定义的默认值
+  }
 }
 
 
@@ -1266,6 +1354,122 @@ document.addEventListener('DOMContentLoaded', () => {
       renderTable();
     });
     console.log('行搜索输入框已绑定');
+  }
+
+  // 绑定字段选择器
+  const fieldSelector = document.getElementById('fieldSelector');
+  const fieldDropdown = document.getElementById('fieldDropdown');
+  if (fieldSelector && fieldDropdown) {
+    // 点击选择器显示/隐藏下拉菜单
+    fieldSelector.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isCurrentlyOpen = fieldDropdown.classList.contains('show');
+      fieldSelector.classList.toggle('open');
+      fieldDropdown.classList.toggle('show');
+
+      // 如果是打开下拉菜单
+      if (!isCurrentlyOpen) {
+        // 自动聚焦到搜索输入框
+        const fieldSearchInput = document.getElementById('fieldSearchInput');
+        if (fieldSearchInput) {
+          setTimeout(() => {
+            fieldSearchInput.focus();
+            // 清空搜索框内容
+            fieldSearchInput.value = '';
+            // 触发过滤以显示所有选项
+            filterFieldOptions();
+
+            // 添加键盘事件监听器
+            addKeyboardNavigation(fieldSearchInput);
+          }, 0);
+        }
+      }
+    });
+
+    // 点击选项选择字段
+    fieldDropdown.addEventListener('click', (e) => {
+      if (e.target.classList.contains('field-option')) {
+        const selectedField = e.target.getAttribute('data-field');
+        document.getElementById('selectedField').textContent = selectedField;
+        currentSearchField = selectedField;
+        fieldSelector.classList.remove('open');
+        fieldDropdown.classList.remove('show');
+
+        // 重新渲染表格以应用新的搜索条件
+        renderTable();
+      }
+    });
+
+    // 点击页面其他地方隐藏下拉菜单
+    document.addEventListener('click', (e) => {
+      if (!fieldSelector.contains(e.target) && !fieldDropdown.contains(e.target)) {
+        fieldSelector.classList.remove('open');
+        fieldDropdown.classList.remove('show');
+      }
+    });
+
+    console.log('字段选择器已绑定');
+  }
+
+  // 键盘导航功能
+  function addKeyboardNavigation(searchInput) {
+    let currentIndex = -1; // 当前选中的索引，-1表示未选中任何项
+    const optionsContainer = document.getElementById('fieldOptionsContainer');
+
+    // 监听键盘事件
+    searchInput.addEventListener('keydown', (e) => {
+      const options = optionsContainer ? Array.from(optionsContainer.querySelectorAll('.field-option:not([style*="display: none"])')) : [];
+
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          if (options.length > 0) {
+            // 取消之前选中的项
+            if (currentIndex >= 0 && options[currentIndex]) {
+              options[currentIndex].classList.remove('selected');
+            }
+
+            // 移动到下一项
+            currentIndex = (currentIndex + 1) % options.length;
+
+            // 选中当前项
+            options[currentIndex].classList.add('selected');
+            options[currentIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          }
+          break;
+
+        case 'ArrowUp':
+          e.preventDefault();
+          if (options.length > 0) {
+            // 取消之前选中的项
+            if (currentIndex >= 0 && options[currentIndex]) {
+              options[currentIndex].classList.remove('selected');
+            }
+
+            // 移动到上一项
+            currentIndex = currentIndex <= 0 ? options.length - 1 : currentIndex - 1;
+
+            // 选中当前项
+            options[currentIndex].classList.add('selected');
+            options[currentIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          }
+          break;
+
+        case 'Enter':
+          e.preventDefault();
+          if (currentIndex >= 0 && options[currentIndex]) {
+            // 模拟点击选中的选项
+            options[currentIndex].click();
+          }
+          break;
+
+        case 'Escape':
+          // 按ESC键关闭下拉菜单
+          fieldSelector.classList.remove('open');
+          fieldDropdown.classList.remove('show');
+          break;
+      }
+    });
   }
 
   // 绑定版本号区域点击事件
