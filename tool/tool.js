@@ -44,6 +44,8 @@ let rows = [];
 let activeCols = new Set();
 // 存储当前排序信息：列索引、升序/降序、排序状态
 let sortInfo = { idx: -1, asc: true, state: 'none' }; // state: 'none' | 'asc' | 'desc'
+// 存储提取到的SQL语句
+let extractedSql = '';
 
 // 拖拽相关变量
 let dragSrcEl = null;
@@ -62,6 +64,7 @@ function clearAllData() {
   rows = [];
   activeCols = new Set();
   sortInfo = { idx: -1, asc: true, state: 'none' };
+  extractedSql = '';
 
   // 更新统计信息
   const statEl = document.getElementById('stat');
@@ -81,8 +84,521 @@ function clearAllData() {
   if (thead) thead.innerHTML = '';
   if (tbody) tbody.innerHTML = '';
 
+  // 清空SQL显示
+  const sqlDisplay = document.getElementById('sqlDisplay');
+  const noSqlMessage = document.getElementById('noSqlMessage');
+  const copySqlBtn = document.getElementById('copySqlBtn');
+  if (sqlDisplay) sqlDisplay.style.display = 'none';
+  if (noSqlMessage) noSqlMessage.style.display = 'block';
+  if (copySqlBtn) copySqlBtn.style.display = 'none';
+
   console.log('数据已清空');
 }
+
+// 从文本中提取SQL语句，优化处理复杂mysql命令行输出
+function extractSql(text) {
+  console.log('开始提取SQL语句');
+
+  // 1. 清理文本，移除结果统计信息和无效行
+  let cleanedText = text;
+
+  // 移除结果统计信息
+  cleanedText = cleanedText.replace(/^\s*\d+\s+rows\s+in\s+set\s+\(.*?\)\s*$/gm, '');
+
+  // 移除所有无效的分隔线（包括以多个-开头的行）
+  cleanedText = cleanedText.replace(/^\s*\-+[\s\+\-]*$/gm, '');
+
+  // 2. 专门处理mysql命令行输出，按命令块分割
+  const commandBlocks = [];
+  let currentBlock = [];
+  let lines = cleanedText.split('\n');
+
+  for (const line of lines) {
+    if (line.startsWith('mysql>')) {
+      // 保存之前的块
+      if (currentBlock.length > 0) {
+        commandBlocks.push(currentBlock);
+      }
+      // 开始新块
+      currentBlock = [line];
+    } else if (line.trim().startsWith('->')) {
+      // 添加到当前块
+      currentBlock.push(line);
+    } else if (currentBlock.length > 0) {
+      // 如果当前在块内，且遇到了表格分隔线或内容，则当前块结束
+      if (line.trim().startsWith('+') || line.trim().startsWith('|') || /^\s*\d+\s+rows\s+in\s+set\s+\(.*?\)\s*$/.test(line)) {
+        // 这是结果部分，添加到当前块然后结束
+        currentBlock.push(line);
+        commandBlocks.push(currentBlock);
+        currentBlock = [];
+      } else {
+        // 非结果内容，添加到当前块
+        currentBlock.push(line);
+      }
+    } else {
+      // 不在任何块内，可能是一些状态信息
+      if (line.trim() !== '' && line.trim() !== 'Database changed' && line.trim() !== 'Bye') {
+        currentBlock.push(line);
+      }
+    }
+  }
+
+  // 添加最后一个块
+  if (currentBlock.length > 0) {
+    commandBlocks.push(currentBlock);
+  }
+
+  // 处理每个命令块，提取有效SQL
+  const validSqlCommands = [];
+
+  for (const block of commandBlocks) {
+    let sqlCommand = '';
+    let isSqlCommand = false;
+
+    for (const line of block) {
+      if (line.startsWith('mysql>')) {
+        // 提取命令部分
+        const commandPart = line.replace('mysql>', '').trim();
+        // 检查是否是use命令或其他非查询命令
+        if (/^(use|show\s+databases|show\s+tables|describe|desc|show\s+create|show\s+processlist|show\s+status|show\s+variables|show\s+engines|show\s+plugins|show\s+character\s+set|show\s+collation)\s+/i.test(commandPart)) {
+          isSqlCommand = false; // 这些命令不被记录
+          break; // 跳过整个命令块
+        }
+        // 检查是否是查询命令
+        const queryKeywords = ['SELECT', 'UPDATE', 'INSERT', 'DELETE', 'CREATE', 'ALTER', 'DROP', 'SHOW', 'DESCRIBE', 'EXPLAIN'];
+        const isQueryCommand = queryKeywords.some(keyword => new RegExp(`^\s*${keyword}\s+`, 'i').test(commandPart));
+        if (isQueryCommand) {
+          sqlCommand = commandPart;
+          isSqlCommand = true;
+        } else {
+          isSqlCommand = false;
+          break; // 非查询命令，跳过整个块
+        }
+      } else if (line.trim().startsWith('->') && isSqlCommand) {
+        // 续行，添加到SQL命令
+        sqlCommand += '\n' + line.replace(/^\s*->\s*/, '');
+      } else if (line.trim().startsWith('+') || line.trim().startsWith('|')) {
+        // 表格结果部分，不添加到SQL命令
+        continue;
+      } else if (isSqlCommand && !/^\s*\d+\s+rows\s+in\s+set\s+\(.*?\)\s*$/.test(line) &&
+        line.trim() !== 'Database changed' && line.trim() !== 'Bye') {
+        // 其他内容，如果是SQL命令块的一部分则添加
+        sqlCommand += '\n' + line;
+      }
+    }
+
+    if (sqlCommand && isSqlCommand) {
+      // 确保SQL命令不包含状态消息
+      const cleanedCommand = sqlCommand
+        .replace(/\n\s*Database changed\s*/g, '')
+        .replace(/\n\s*Bye\s*/g, '')
+        .trim();
+
+      if (cleanedCommand) {
+        validSqlCommands.push(cleanedCommand);
+      }
+    }
+  }
+
+  console.log('找到有效的SQL命令:', validSqlCommands);
+
+  // 3. 如果有有效的SQL命令，返回最后一个
+  if (validSqlCommands.length > 0) {
+    const finalSql = validSqlCommands[validSqlCommands.length - 1].trim();
+    console.log('最终选择的SQL:', finalSql);
+    return finalSql;
+  }
+
+  // 4. 如果没有找到mysql命令块，尝试从纯文本中提取SQL
+  // 先清理文本
+  let pureText = cleanedText
+    .replace(/^mysql>\s*/gm, '')  // 移除mysql>提示符
+    .replace(/^\s*->\s*/gm, '')   // 移除->提示符
+    .replace(/^\s*[\-\+\|]+\s*$/gm, '')  // 移除分隔线
+    .replace(/^\s*Database changed\s*$/gm, '')  // 移除状态消息
+    .replace(/^\s*Bye\s*$/gm, '');  // 移除Bye消息
+
+  // 查找SQL语句
+  const sqlStatements = [];
+  const sqlLines = [];
+  const pureLines = pureText.split('\n');
+
+  let inSqlStatement = false;
+  for (const line of pureLines) {
+    const trimmedLine = line.trim();
+
+    // 检查是否是表格分隔线或内容
+    if (/^\s*[|\+][\s\-+\w\d,\.\(\)]*\s*$/.test(line) && !/^\s*(SELECT|UPDATE|INSERT|DELETE|CREATE|ALTER|DROP|USE|SHOW|DESCRIBE|EXPLAIN)\s+/i.test(trimmedLine)) {
+      // 这是表格内容，如果正在收集SQL，则结束当前SQL语句
+      if (inSqlStatement && sqlLines.length > 0) {
+        sqlStatements.push(sqlLines.join('\n').trim());
+        sqlLines.length = 0; // 清空数组
+        inSqlStatement = false;
+      }
+      continue;
+    }
+
+    // 检查是否是结果统计信息
+    if (/^\s*\d+\s+rows\s+in\s+set\s+\(.*?\)\s*$/.test(trimmedLine)) {
+      if (inSqlStatement && sqlLines.length > 0) {
+        sqlStatements.push(sqlLines.join('\n').trim());
+        sqlLines.length = 0;
+        inSqlStatement = false;
+      }
+      continue;
+    }
+
+    // 检查是否是SQL语句
+    const isSqlStatement = /\b(SELECT|UPDATE|INSERT|DELETE|CREATE|ALTER|DROP|SHOW|DESCRIBE|EXPLAIN)\b/i.test(trimmedLine);
+    const isUseStatement = /^(use|show\s+databases|show\s+tables|describe|desc|show\s+create|show\s+processlist|show\s+status|show\s+variables|show\s+engines|show\s+plugins|show\s+character\s+set|show\s+collation)\b/i.test(trimmedLine);
+
+    if (isSqlStatement && !isUseStatement) {
+      sqlLines.push(line);
+      inSqlStatement = true;
+    } else if (inSqlStatement && trimmedLine !== '' && !/^\s*Database changed\s*$/i.test(trimmedLine) && !/^\s*Bye\s*$/i.test(trimmedLine)) {
+      // 在SQL语句内的延续行
+      sqlLines.push(line);
+    } else if (inSqlStatement && (trimmedLine === '' || /^\s*Database changed\s*$/i.test(trimmedLine) || /^\s*Bye\s*$/i.test(trimmedLine))) {
+      // SQL语句结束
+      if (sqlLines.length > 0) {
+        sqlStatements.push(sqlLines.join('\n').trim());
+        sqlLines.length = 0;
+        inSqlStatement = false;
+      }
+    }
+  }
+
+  // 处理最后可能剩余的SQL语句
+  if (inSqlStatement && sqlLines.length > 0) {
+    sqlStatements.push(sqlLines.join('\n').trim());
+  }
+
+  console.log('找到纯文本SQL语句:', sqlStatements);
+
+  // 返回最后一个有效的SQL语句
+  if (sqlStatements.length > 0) {
+    const finalSql = sqlStatements[sqlStatements.length - 1];
+    console.log('最终选择的纯文本SQL:', finalSql);
+    return finalSql;
+  }
+
+  console.log('未提取到SQL语句');
+  return '';
+}
+
+// 将多行SQL压缩成一行，去除不必要的占位符和注释
+function compressSqlToSingleLine(sql) {
+  if (!sql) return '';
+
+  let compressed = sql;
+
+  // 1. 移除mysql命令行提示符 (-> )
+  compressed = compressed.replace(/^\s*->\s*/gm, '');
+
+  // 2. 移除单行注释 (-- )
+  compressed = compressed.replace(/--.*$/gm, '');
+
+  // 3. 移除多行注释 (/* */)
+  compressed = compressed.replace(/\/\*[\s\S]*?\*\//g, '');
+
+  // 4. 移除多余的空白字符（空格、换行符、制表符等），替换为单个空格
+  compressed = compressed.replace(/\s+/g, ' ');
+
+  // 5. 移除语句末尾多余的分号
+  compressed = compressed.replace(/;\s*$/, '');
+
+  // 6. 去除首尾空白
+  return compressed.trim();
+}
+
+// 简单的SQL格式化函数，保持原始大小写和正确缩进
+function formatSql(sql) {
+  // 确保输入是字符串
+  if (!sql || typeof sql !== 'string') {
+    console.error('formatSql: 输入不是字符串:', sql);
+    return '';
+  }
+
+  // 1. 彻底清理SQL，移除所有mysql命令行提示符
+  let cleanedSql = sql;
+  cleanedSql = cleanedSql.replace(/^\s*->\s*/gm, ''); // 移除 -> 提示符
+  cleanedSql = cleanedSql.replace(/^\s*mysql>\s*/gm, ''); // 移除 mysql> 提示符
+  cleanedSql = cleanedSql.trim();
+
+  // 2. 如果是空字符串，直接返回
+  if (!cleanedSql) {
+    return '';
+  }
+
+  // 3. 确保语句末尾有分号
+  if (!cleanedSql.endsWith(';')) {
+    cleanedSql += ';';
+  }
+
+  // 4. 添加基本的SQL格式化，包括缩进和换行
+  return formatSqlWithIndentation(cleanedSql);
+}
+
+// 带缩进的SQL格式化函数
+function formatSqlWithIndentation(sql) {
+  if (!sql) return '';
+
+  // 首先完全清理SQL，移除所有换行符和多余空格，将其变为单行
+  let cleanedSql = sql.replace(/\n/g, ' ').replace(/\r/g, ' ').replace(/\s+/g, ' ').trim();
+
+  // 定义需要换行的关键字
+  const lineBreakKeywords = [
+    'FROM', 'WHERE', 'GROUP BY', 'ORDER BY',
+    'HAVING', 'LIMIT', 'JOIN', 'INNER JOIN', 'LEFT JOIN',
+    'RIGHT JOIN', 'FULL JOIN', 'UNION', 'UNION ALL',
+    'INSERT INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE FROM',
+    'CREATE TABLE', 'ALTER TABLE', 'DROP TABLE'
+  ];
+
+  // 在关键字前添加换行
+  lineBreakKeywords.forEach(keyword => {
+    const regex = new RegExp(`\\s+${keyword}\\s+`, 'gi');
+    cleanedSql = cleanedSql.replace(regex, `\n${keyword} `);
+  });
+
+  // 特殊处理 AS 关键字，避免过多换行
+  cleanedSql = cleanedSql.replace(/\s+AS\s+/gi, ' AS ');
+
+  // 按行分割
+  const lines = cleanedSql.split('\n');
+  const formattedLines = [];
+
+  // Helper function to split fields considering nested parentheses
+  function splitFields(fieldsStr) {
+    const fields = [];
+    let currentField = '';
+    let parenLevel = 0;
+    let inQuotes = false;
+    let quoteChar = null;
+
+    for (let i = 0; i < fieldsStr.length; i++) {
+      const char = fieldsStr[i];
+
+      if (!inQuotes) {
+        if (char === '(') {
+          parenLevel++;
+          currentField += char;
+        } else if (char === ')') {
+          parenLevel--;
+          currentField += char;
+        } else if (char === ',' && parenLevel === 0) {
+          fields.push(currentField.trim());
+          currentField = '';
+        } else {
+          currentField += char;
+        }
+      } else {
+        currentField += char;
+        if (char === quoteChar && fieldsStr[i - 1] !== '\\') {
+          inQuotes = false;
+          quoteChar = null;
+        }
+      }
+
+      // Handle quotes
+      if (!inQuotes && (char === '"' || char === "'") && fieldsStr[i - 1] !== '\\') {
+        inQuotes = true;
+        quoteChar = char;
+        currentField += char;
+      } else if (inQuotes) {
+        currentField += char;
+      }
+    }
+
+    if (currentField.trim() !== '') {
+      fields.push(currentField.trim());
+    }
+
+    return fields;
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    if (line.toUpperCase().startsWith('SELECT')) {
+      // 处理 SELECT 行，分离 SELECT 和字段
+      const selectMatch = line.match(/^SELECT\s+(.*)/i);
+      if (selectMatch) {
+        const fieldsStr = selectMatch[1].trim();
+        const fieldList = splitFields(fieldsStr);
+
+        // 添加 SELECT 关键字单独一行
+        formattedLines.push('SELECT');
+
+        // 添加每个字段，每行一个，带适当的缩进和逗号
+        fieldList.forEach((field, idx) => {
+          const trimmedField = field.trim();
+          if (idx === fieldList.length - 1) {
+            // 最后一个字段不加逗号
+            formattedLines.push('  ' + trimmedField);
+          } else {
+            // 非最后一个字段加逗号
+            formattedLines.push('  ' + trimmedField + ',');
+          }
+        });
+      } else {
+        formattedLines.push(line);
+      }
+    } else {
+      // 处理其他行
+      const upperLine = line.toUpperCase();
+
+      if (upperLine.startsWith('FROM') ||
+        upperLine.startsWith('WHERE') ||
+        upperLine.startsWith('ORDER BY') ||
+        upperLine.startsWith('GROUP BY') ||
+        upperLine.startsWith('HAVING') ||
+        upperLine.startsWith('LIMIT')) {
+        formattedLines.push(line); // 与SELECT对齐，不缩进
+      } else if (upperLine.includes('JOIN')) {
+        formattedLines.push(line); // 与SELECT对齐，不缩进
+      } else {
+        // 其他情况，保持原样
+        formattedLines.push(line);
+      }
+    }
+  }
+
+  return formattedLines.join('\n');
+}
+
+// 显示提取到的SQL
+function displaySql(sql) {
+  const sqlDisplay = document.getElementById('sqlDisplay');
+  const noSqlMessage = document.getElementById('noSqlMessage');
+  const copySqlBtn = document.getElementById('copySqlBtn');
+
+  if (sql) {
+    // 将多行SQL压缩成一行
+    const compressedSql = compressSqlToSingleLine(sql);
+    sqlDisplay.textContent = compressedSql;
+    sqlDisplay.style.display = 'block';
+    sqlDisplay.style.cursor = 'pointer';
+    sqlDisplay.style.title = '点击查看完整SQL';
+    noSqlMessage.style.display = 'none';
+    copySqlBtn.style.display = 'inline-block';
+
+    // 添加点击事件
+    sqlDisplay.onclick = () => showSqlModal(sql);
+  } else {
+    sqlDisplay.style.display = 'none';
+    sqlDisplay.onclick = null;
+    noSqlMessage.style.display = 'block';
+    copySqlBtn.style.display = 'none';
+  }
+}
+
+// 显示SQL模态框
+function showSqlModal(sql) {
+  const sqlModalOverlay = document.getElementById('sqlOverlay');
+  const sqlModalDisplay = document.getElementById('sqlModalDisplay');
+
+  if (sqlModalOverlay && sqlModalDisplay) {
+    // 格式化SQL后显示
+    const formattedSql = formatSql(sql);
+    sqlModalDisplay.textContent = formattedSql;
+    sqlModalOverlay.style.display = 'flex';
+
+    // 添加点击遮罩层关闭弹窗的事件
+    const closeModalOnClickOutside = (e) => {
+      if (e.target === sqlModalOverlay) {
+        closeSqlModal();
+      }
+    };
+
+    // 先移除可能存在的旧事件监听器
+    sqlModalOverlay.removeEventListener('click', closeModalOnClickOutside);
+    // 添加新的事件监听器
+    sqlModalOverlay.addEventListener('click', closeModalOnClickOutside);
+  }
+}
+
+// 关闭SQL模态框
+function closeSqlModal() {
+  // 直接获取模态框元素并关闭
+  const sqlModalOverlay = document.getElementById('sqlOverlay');
+  if (sqlModalOverlay) {
+    sqlModalOverlay.style.display = 'none';
+  }
+
+  console.log('关闭SQL模态框');
+}
+
+// 复制SQL到剪贴板
+function copySql() {
+  if (extractedSql) {
+    // 确保复制的SQL是干净的，没有箭头提示符
+    const cleanSql = formatSql(extractedSql); // 使用formatSql函数清理箭头和格式化
+    navigator.clipboard.writeText(cleanSql)
+      .then(() => {
+        console.log('SQL复制成功，显示提示');
+        showToast('SQL已复制到剪贴板');
+      })
+      .catch(err => {
+        console.error('复制SQL失败:', err);
+        showToast('复制SQL失败，请重试');
+      });
+  }
+}
+
+// 从模态框复制SQL
+function copySqlFromModal() {
+  const sqlModalDisplay = document.getElementById('sqlModalDisplay');
+  if (sqlModalDisplay && sqlModalDisplay.textContent) {
+    navigator.clipboard.writeText(sqlModalDisplay.textContent)
+      .then(() => {
+        console.log('模态框SQL复制成功，显示提示');
+        showToast('SQL已复制到剪贴板');
+      })
+      .catch(err => {
+        console.error('复制SQL失败:', err);
+        showToast('复制SQL失败，请重试');
+      });
+  }
+}
+
+// 为复制和关闭按钮添加事件监听（确保事件绑定正确）
+document.addEventListener('DOMContentLoaded', () => {
+  // 为关闭按钮添加事件监听
+  const closeSqlBtn = document.getElementById('closeSqlModalBtn');
+  if (closeSqlBtn) {
+    closeSqlBtn.removeEventListener('click', closeSqlModal);
+    closeSqlBtn.addEventListener('click', closeSqlModal);
+    console.log('SQL关闭按钮事件绑定成功');
+  }
+
+  // 为顶部复制按钮添加事件监听
+  const copySqlBtn = document.getElementById('copySqlBtn');
+  if (copySqlBtn) {
+    console.log('找到顶部复制按钮，添加事件监听');
+    copySqlBtn.removeEventListener('click', copySql);
+    copySqlBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      console.log('顶部复制按钮被点击');
+      copySql();
+    });
+    console.log('顶部复制按钮事件绑定成功');
+  }
+
+  // 为模态框复制按钮添加事件监听
+  const copySqlModalBtn = document.getElementById('copySqlModalBtn');
+  if (copySqlModalBtn) {
+    console.log('找到模态框复制按钮，添加事件监听');
+    copySqlModalBtn.removeEventListener('click', copySqlFromModal);
+    copySqlModalBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      console.log('模态框复制按钮被点击');
+      copySqlFromModal();
+    });
+    console.log('模态框复制按钮事件绑定成功');
+  }
+});
 
 // 切换主题模式（深色/浅色）
 function toggleTheme() {
@@ -141,6 +657,10 @@ function handleDataInput() {
     clearAllData();
     return;
   }
+
+  // 提取SQL语句
+  extractedSql = extractSql(rawText);
+  displaySql(extractedSql);
 
   // 使用改进的解析方法来处理包含换行符的表格
   const parsedResults = parseTableAdvanced(rawText);
@@ -1598,4 +2118,3 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 });
-

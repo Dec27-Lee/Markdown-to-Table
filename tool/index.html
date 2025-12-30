@@ -475,7 +475,7 @@
       background: rgba(0, 0, 0, 0.3);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(20px);
-      z-index: 9999;
+      z-index: 99999;
       align-items: center;
       justify-content: center;
       padding: 20px;
@@ -619,7 +619,7 @@
       border-radius: 12px;
       font-weight: 600;
       display: none;
-      z-index: 10001;
+      z-index: 100000;
       box-shadow: 0 15px 30px rgba(16, 185, 129, 0.3);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
@@ -1171,7 +1171,21 @@
       </div>
     </div>
 
-    <!-- 这里不要放全选/清空按钮了 -->
+    <!-- SQL展示区域 -->
+    <div class="sql-display-container"
+      style="padding: 20px; background: var(--panel); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border-bottom: 1px solid var(--border); box-shadow: var(--shadow-sm);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h3 style="margin: 0; font-size: 16px; color: var(--primary);">🔍 识别到的SQL查询</h3>
+        <button id="copySqlBtn" class="btn" style="font-size: 12px; padding: 6px 12px;" onclick="copySql()">📋
+          复制SQL</button>
+      </div>
+      <div id="sqlDisplay"
+        style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px; font-family: 'Fira Code', 'SF Mono', Monaco, monospace; font-size: 13px; line-height: 1.5; max-height: 200px; overflow: auto; white-space: pre-wrap; word-break: break-word; display: none;">
+      </div>
+      <div id="noSqlMessage"
+        style="color: var(--text-secondary); font-size: 13px; text-align: center; padding: 20px; display: block;">
+        未识别到SQL查询</div>
+    </div>
 
     <!-- 行搜索和统计信息区域 -->
     <div class="search-bar-container">
@@ -1225,6 +1239,27 @@
       <!-- JSON显示区域 -->
       <div class="modal-body">
         <pre id="jsonDisplay"></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- SQL预览模态框 -->
+  <div class="modal-mask" id="sqlOverlay" style="z-index: 99999;">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 style="margin:0; font-size:16px; font-weight:600;">🔍 SQL 查询详情</h3>
+        <div class="btn-group">
+          <!-- 复制SQL按钮 -->
+          <button class="btn" id="copySqlModalBtn" onclick="copySqlFromModal()">📋 复制SQL</button>
+          <!-- 关闭SQL模态框按钮 -->
+          <button class="btn" id="closeSqlModalBtn" style="background:rgba(239, 68, 68, 0.1); color:#ef4444;"
+            onclick="closeSqlModal()">关闭</button>
+        </div>
+      </div>
+      <!-- SQL显示区域 -->
+      <div class="modal-body">
+        <pre id="sqlModalDisplay"
+          style="font-family: 'Fira Code', 'SF Mono', Monaco, monospace; font-size: 14px; line-height: 1.6;"></pre>
       </div>
     </div>
   </div>
