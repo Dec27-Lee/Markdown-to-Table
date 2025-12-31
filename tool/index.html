@@ -293,13 +293,28 @@
     }
 
     .table-scroll-container {
-      max-height: calc(100vh - 280px);
+      max-height: calc(100vh - 310px);
       overflow: auto;
       position: relative;
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: 12px 12px 0 0;
       background: var(--glass-bg);
       backdrop-filter: blur(10px);
+    }
+
+    .stats {
+      font-size: 12px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      padding: 8px 16px;
+      background: var(--card-bg);
+      border-radius: 0 0 12px 12px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      z-index: 10;
     }
 
     table {
@@ -653,7 +668,7 @@
     }
 
     #generateSqlBtn {
-      background: rgba(59, 130, 246, 0.15);
+      background: #3b82f6;
       border: 1px solid var(--border);
       border-radius: 10px;
       padding: 10px 14px;
@@ -675,7 +690,7 @@
       color: white;
       border-color: var(--primary);
       transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(96, 165, 250, 0.25);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
     }
 
     #generateSqlBtn:active {
@@ -1168,7 +1183,7 @@
       <h2>Markdown转表格</h2>
       <h3 class="version-area" id="versionArea">
         <span class="version-label">版本号</span>
-        <span id="version" class="version-number">v3.1.0</span>
+        <span id="version" class="version-number">v3.1.1</span>
       </h3>
       <!-- 主题切换按钮 -->
       <button class="btn" id="toggleThemeBtn" style="width:100%; margin-bottom:10px;">🌓 切换主题模式</button>
@@ -1222,7 +1237,7 @@
       </div>
     </div>
 
-    <!-- 行搜索和统计信息区域 -->
+    <!-- 行搜索区域 -->
     <div class="search-bar-container">
       <!-- 字段选择下拉框 -->
       <div class="field-selector-container">
@@ -1242,8 +1257,6 @@
       <!-- SQL生成按钮 -->
       <button id="generateSqlBtn" title="根据当前表格数据生成SQL语句">🔧
         生成SQL</button>
-      <!-- 统计信息显示 -->
-      <div class="stats" id="stat">等待数据输入...</div>
     </div>
 
     <!-- 表格视图区域 -->
@@ -1258,6 +1271,8 @@
           <tbody id="tbody"></tbody>
         </table>
       </div>
+      <!-- 表格统计信息显示 -->
+      <div class="stats" id="stat">等待数据输入...</div>
     </div>
   </main>
 
@@ -1306,7 +1321,7 @@
   <div class="modal-mask" id="versionOverlay">
     <div class="modal-box version-modal">
       <div class="modal-header">
-        <h3 style="margin:0; font-size:20px; font-weight:600;">版本信息 v3.1.0</h3>
+        <h3 style="margin:0; font-size:20px; font-weight:600;">版本信息 v3.1.1</h3>
         <!-- 关闭版本模态框按钮 -->
         <button class="btn close-btn" id="closeVersionModalBtn">✕</button>
       </div>
@@ -1315,9 +1330,9 @@
         <div class="version-content">
           <h4 style="margin: 16px 0 12px 0; color: var(--primary); font-size: 18px;">更新内容：</h4>
           <ul style="margin: 0 0 20px 20px; padding-left: 10px; font-size: 18px;">
-            <li style="margin-bottom: 8px;">[新增] 支持识别选中文本的SQL，支持格式化并复制SQL</li>
-            <li style="margin-bottom: 8px;">[优化] 优化了新建标签页的打开方式，默认在当前操作页旁边打开</li>
-            <li style="margin-bottom: 8px;">[修复] 修复表格的高度显示问题</li>
+            <li style="margin-bottom: 8px;">[新增] 选中文本后识别SQL功能，支持识别联表查询SQL</li>
+            <li style="margin-bottom: 8px;">[新增] 支持针对筛选的表格内容生成SQL，未解析到原始SQL的，可以输入表名后生成SQL</li>
+            <li style="margin-bottom: 8px;">[优化] 优化页面UI交互</li>
           </ul>
 
           <div class="version-link-section">
