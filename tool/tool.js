@@ -2140,7 +2140,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function extractTableNames(sql) {
   if (!sql) return [];
 
-  const tableNames = [];
+  let tableNames = [];
 
   // 提取FROM子句后的表名（包括逗号分隔的多表和JOIN中的表）
   // 使用大小写不敏感的正则表达式查找关键词，但保留原始SQL中的表名大小写
@@ -2185,20 +2185,42 @@ function extractTableNames(sql) {
     }
 
     for (let i = 0; i < tables.length; i++) {
-      const table = tables[i].split(/\s/)[0].replace(/[;\(\)]/g, '').trim(); // 只取表名部分，去除别名
-      const upperTable = table.toUpperCase();
+      // 修复：更精确地提取表名和别名
+      const tableWithAlias = tables[i].trim();
+      // 分割并只取第一个部分（表名），但要正确处理别名情况
+      const parts = tableWithAlias.split(/\s+/);
+      if (parts.length > 0) {
+        let tableName = parts[0]; // 表名
+        // 检查是否有别名（AS关键字或直接跟别名）
+        if (parts.length >= 2) {
+          const secondPart = parts[1].toUpperCase();
+          if (secondPart !== 'AS' && !['INNER', 'LEFT', 'RIGHT', 'FULL', 'OUTER', 'CROSS', 'JOIN'].includes(secondPart)) {
+            // 可能是别名，但我们需要提取真实的表名
+            tableName = parts[0];
+          } else if (parts.length >= 3 && secondPart === 'AS') {
+            // 使用 AS 关键字的情况
+            tableName = parts[0];
+          } else {
+            // 只取表名部分
+            tableName = parts[0];
+          }
+        }
+        tableName = tableName.replace(/[;\(\)]/g, '').trim();
 
-      if (table &&
-        upperTable !== 'INNER' &&
-        upperTable !== 'LEFT' &&
-        upperTable !== 'RIGHT' &&
-        upperTable !== 'FULL' &&
-        upperTable !== 'OUTER' &&
-        upperTable !== 'CROSS' &&
-        upperTable !== 'JOIN' &&
-        !upperTable.endsWith('JOIN')) {
-        if (!tableNames.includes(table)) {
-          tableNames.push(table);
+        const upperTable = tableName.toUpperCase();
+
+        if (tableName &&
+          upperTable !== 'INNER' &&
+          upperTable !== 'LEFT' &&
+          upperTable !== 'RIGHT' &&
+          upperTable !== 'FULL' &&
+          upperTable !== 'OUTER' &&
+          upperTable !== 'CROSS' &&
+          upperTable !== 'JOIN' &&
+          !upperTable.endsWith('JOIN')) {
+          if (!tableNames.includes(tableName)) {
+            tableNames.push(tableName);
+          }
         }
       }
     }
@@ -2208,9 +2230,15 @@ function extractTableNames(sql) {
   const joinRegex = /\b(INNER\s+|LEFT\s+|RIGHT\s+|FULL\s+|CROSS\s+)?JOIN\s+([^\s\(\);]+)/gi;
   let joinMatch;
   while ((joinMatch = joinRegex.exec(sql)) !== null) {
-    const joinTable = joinMatch[2].split(/\s/)[0].replace(/[;\(\)]/g, '');
-    if (joinTable && !tableNames.includes(joinTable)) {
-      tableNames.push(joinTable);
+    // 修复：更精确地提取JOIN中的表名，避免提取别名
+    const joinTableWithAlias = joinMatch[2].trim();
+    const parts = joinTableWithAlias.split(/\s+/);
+    if (parts.length > 0) {
+      // 只取表名部分，忽略别名
+      const joinTable = parts[0].replace(/[;\(\)]/g, '');
+      if (joinTable && !tableNames.includes(joinTable)) {
+        tableNames.push(joinTable);
+      }
     }
   }
 
@@ -2242,6 +2270,18 @@ function extractTableNames(sql) {
     if (tableName && !tableNames.includes(tableName)) {
       tableNames.push(tableName);
     }
+  }
+
+  // 重要修复：如果SQL是JOIN查询，使用别名映射将别名转换为真实表名
+  if (isJoinQuery(sql)) {
+    const tableAliasMapping = analyzeTableAliasMapping(sql);
+    const resolvedTableNames = tableNames.map(tableName => {
+      // 检查提取的表名是否是别名，如果是则转换为真实表名
+      // 别名映射中键是小写的别名，值是真实表名
+      return tableAliasMapping[tableName.toLowerCase()] || tableName;
+    });
+    // 过滤掉重复的表名
+    tableNames = [...new Set(resolvedTableNames)];
   }
 
   return tableNames;
@@ -2293,6 +2333,131 @@ function getFullFromClause(sql) {
   const fromClause = afterFrom.substring(0, endIndex).trim();
 
   return fromClause;
+}
+
+// 分析FROM子句中的表别名映射
+function analyzeTableAliasMapping(sql) {
+  if (!sql) return {};
+
+  const tableAliasMapping = {};
+  const fromClause = getFullFromClause(sql);
+  if (!fromClause) return tableAliasMapping;
+
+  // 使用更精确的正则表达式来匹配表名和别名
+  // 匹配模式：表名 AS 别名, 表名 别名, 或表名 (当后面是JOIN时)
+  let position = 0;
+  const clause = fromClause + ' '; // 添加空格以简化处理
+  let currentWord = '';
+  let words = [];
+
+  // 手动解析单词，考虑引号
+  for (let i = 0; i < clause.length; i++) {
+    const char = clause[i];
+
+    if (char === ' ' || char === '\t' || char === '\n' || char === '\r') {
+      if (currentWord) {
+        words.push(currentWord);
+        currentWord = '';
+      }
+    } else if (char === '`' || char === '"') {
+      // 处理被引号包围的词
+      const quote = char;
+      currentWord += char;
+      i++;
+      while (i < clause.length && clause[i] !== quote) {
+        currentWord += clause[i];
+        i++;
+      }
+      if (i < clause.length) {
+        currentWord += clause[i]; // 添加结束引号
+      }
+    } else {
+      currentWord += char;
+    }
+  }
+  if (currentWord) {
+    words.push(currentWord);
+  }
+
+  // 解析表名和别名
+  let i = 0;
+  while (i < words.length) {
+    let word = words[i];
+
+    // 移除引号
+    word = word.replace(/[`"]/g, '');
+
+    const upperWord = word.toUpperCase();
+
+    // 检查是否是JOIN相关关键词，如果是则跳过
+    if (['JOIN', 'INNER', 'LEFT', 'RIGHT', 'FULL', 'CROSS', 'ON', 'USING', 'WHERE', 'ORDER', 'GROUP', 'HAVING', 'LIMIT'].includes(upperWord)) {
+      i++;
+      continue;
+    }
+
+    // 检查是否是逗号，跳过
+    if (word === ',') {
+      i++;
+      continue;
+    }
+
+    // 现在word应该是表名
+    let tableName = word;
+    let alias = null;
+
+    i++; // 移动到下一个词
+
+    // 检查下一个词是否是AS
+    if (i < words.length) {
+      let nextWord = words[i].replace(/[`"]/g, '').toUpperCase();
+      if (nextWord === 'AS') {
+        i++; // 跳过AS
+        if (i < words.length) {
+          alias = words[i].replace(/[`"]/g, ''); // 获取别名
+          i++; // 移动到下一位
+        }
+      } else if (nextWord === 'JOIN' || nextWord === 'INNER' || nextWord === 'LEFT' ||
+        nextWord === 'RIGHT' || nextWord === 'FULL' || nextWord === 'CROSS' ||
+        nextWord === 'ON' || nextWord === 'WHERE' || nextWord === 'ORDER' ||
+        nextWord === 'GROUP' || nextWord === 'HAVING' || nextWord === 'LIMIT' ||
+        words[i] === ',') {
+        // 没有别名，表名就是别名
+        alias = tableName;
+      } else {
+        // 下一个词可能是别名
+        alias = words[i].replace(/[`"]/g, '');
+        i++; // 移动到下一位
+
+        // 检查再下个词是否是JOIN相关关键词，以确认这是别名而不是表名
+        if (i < words.length) {
+          const nextNextWord = words[i].replace(/[`"]/g, '').toUpperCase();
+          if (nextNextWord === 'JOIN' || nextNextWord === 'INNER' || nextNextWord === 'LEFT' ||
+            nextNextWord === 'RIGHT' || nextNextWord === 'FULL' || nextNextWord === 'CROSS' ||
+            nextNextWord === 'ON' || nextNextWord === 'WHERE' || nextNextWord === 'ORDER' ||
+            nextNextWord === 'GROUP' || nextNextWord === 'HAVING' || nextNextWord === 'LIMIT' ||
+            words[i] === ',') {
+            // 确认这是别名
+          } else {
+            // 可能是另一个表名，回退
+            i--;
+            alias = tableName;
+          }
+        } else {
+          // 到达末尾，这是别名
+        }
+      }
+    } else {
+      // 到达末尾，表名就是别名
+      alias = tableName;
+    }
+
+    if (tableName && alias) {
+      // 将别名映射到真实表名
+      tableAliasMapping[alias.toLowerCase()] = tableName;
+    }
+  }
+
+  return tableAliasMapping;
 }
 
 // 分析SQL中的字段与表的映射关系
@@ -2381,10 +2546,11 @@ function analyzeFieldTableMapping(sql) {
 }
 
 // 检测当前显示的列是否来自不同表
+// 检测当前显示的列是否来自不同表，并返回相关信息
 function detectMultipleTableSources(headers, columnOrder = []) {
   if (!extractedSql || !isJoinQuery(extractedSql)) {
-    // 如果没有原始SQL或不是联表查询，返回false
-    return false;
+    // 如果没有原始SQL或不是联表查询，返回false和未知表
+    return { isMultiple: false, detectedTable: 'unknown' };
   }
 
   // 获取当前显示的列索引（activeCols）
@@ -2405,13 +2571,16 @@ function detectMultipleTableSources(headers, columnOrder = []) {
   // 根据排序后的索引获取列名
   const visibleHeaders = visibleHeaderIndices.map(index => headers[index]);
 
-  // 如果没有显示列，返回false
+  // 如果没有显示列，返回false和未知表
   if (visibleHeaders.length === 0) {
-    return false;
+    return { isMultiple: false, detectedTable: 'unknown' };
   }
 
   // 分析字段与表的映射关系
   const fieldTableMapping = analyzeFieldTableMapping(extractedSql);
+
+  // 分析FROM子句中的表别名映射
+  const tableAliasMapping = analyzeTableAliasMapping(extractedSql);
 
   // 获取显示列对应的表名
   const tableSources = [];
@@ -2419,14 +2588,20 @@ function detectMultipleTableSources(headers, columnOrder = []) {
     // 检查字段映射中是否存在该字段
     const tableFromMapping = fieldTableMapping[header];
     if (tableFromMapping && tableFromMapping !== 'unknown') {
-      tableSources.push(tableFromMapping);
+      // 如果检测到的表名是别名，转换为真实表名
+      // 使用小写形式进行查找以确保大小写不敏感的匹配
+      const actualTableName = tableAliasMapping[tableFromMapping.toLowerCase()] || tableFromMapping;
+      tableSources.push(actualTableName);
     } else {
       // 如果字段映射中没有，尝试直接查找带前缀的字段名
       let found = false;
       for (const [mappedField, mappedTable] of Object.entries(fieldTableMapping)) {
         if (mappedField === header) {
           if (mappedTable && mappedTable !== 'unknown') {
-            tableSources.push(mappedTable);
+            // 如果检测到的表名是别名，转换为真实表名
+            // 使用小写形式进行查找以确保大小写不敏感的匹配
+            const actualTableName = tableAliasMapping[mappedTable.toLowerCase()] || mappedTable;
+            tableSources.push(actualTableName);
             found = true;
             break;
           }
@@ -2442,10 +2617,34 @@ function detectMultipleTableSources(headers, columnOrder = []) {
           const fieldPattern = new RegExp(`([a-zA-Z0-9_]+)\\.(${header})`, 'i');
           const match = selectFields.match(fieldPattern);
           if (match) {
-            tableSources.push(match[1]);
+            // 如果匹配到的表前缀是别名，转换为真实表名
+            const tablePrefix = match[1];
+            // 使用小写形式进行查找以确保大小写不敏感的匹配
+            const actualTableName = tableAliasMapping[tablePrefix.toLowerCase()] || tablePrefix;
+            tableSources.push(actualTableName);
           } else {
-            // 如果没有找到表前缀，标记为未知表
-            tableSources.push('unknown');
+            // 如果没有找到表前缀，尝试推断字段属于哪个表
+            // 解析FROM子句和JOIN条件来推断字段可能属于哪个表
+            const tableAliasMappingForInference = analyzeTableAliasMapping(extractedSql);
+            let inferredTable = 'unknown';
+
+            // 检查字段是否可能属于某个表（通过检查表别名映射）
+            // 如果字段名在FROM子句中没有明确的表前缀，我们可能需要使用其他启发式方法
+            // 例如，根据检测到的表别名映射，尝试推断最可能的表
+            if (Object.keys(tableAliasMappingForInference).length > 0) {
+              // 如果是联表查询，尝试从检测到的表中选择一个
+              // 通常，对于INSERT和DELETE，我们可能需要用户明确指定操作哪个表
+              // 或者我们选择第一个表作为默认操作表
+              const allRealTableNames = Object.values(tableAliasMappingForInference);
+              if (allRealTableNames.length > 0) {
+                // 为了确定性，我们选择字典序最小的表名，或根据其他逻辑选择
+                // 但更合理的做法是选择用户可能期望的表
+                // 在很多情况下，如果字段没有明确前缀，可能是从主表中选择的
+                inferredTable = allRealTableNames[0]; // 选择第一个表
+              }
+            }
+
+            tableSources.push(inferredTable);
           }
         }
       }
@@ -2455,11 +2654,19 @@ function detectMultipleTableSources(headers, columnOrder = []) {
   // 检查是否有多个不同的表来源
   const uniqueTables = [...new Set(tableSources)];
 
-  console.log('检测到的表来源:', uniqueTables, '字段映射:', fieldTableMapping, '显示列:', visibleHeaders);
+  console.log('检测到的表来源:', uniqueTables, '字段映射:', fieldTableMapping, '表别名映射:', tableAliasMapping, '显示列:', visibleHeaders);
 
   // 如果有多个不同的表来源（排除'unknown'），返回true
   const actualTables = uniqueTables.filter(table => table !== 'unknown');
-  return actualTables.length > 1;
+  const isMultiple = actualTables.length > 1;
+
+  // 如果不是多表且有检测到的表名，返回第一个表名
+  let detectedTable = 'unknown';
+  if (!isMultiple && actualTables.length === 1) {
+    detectedTable = actualTables[0];
+  }
+
+  return { isMultiple, detectedTable };
 }
 
 // 根据表格数据生成SELECT SQL
@@ -2529,9 +2736,12 @@ function generateSelectSQL(tableName, headers, filteredRows, columnOrder = []) {
       if (extractedSql && isJoinQuery(extractedSql)) {
         // 如果是联表查询，为字段添加表前缀
         const fieldTableMapping = analyzeFieldTableMapping(extractedSql);
-        const tablePrefix = fieldTableMapping[firstColumnName] || 'unknown';
+        let tablePrefix = fieldTableMapping[firstColumnName] || 'unknown';
         if (tablePrefix && tablePrefix !== 'unknown') {
-          whereClause = `${tablePrefix}.${firstColumnName} IN (${firstColumnValues.join(', ')})`;
+          // 如果表前缀是别名，转换为真实表名
+          const tableAliasMapping = analyzeTableAliasMapping(extractedSql);
+          const actualTablePrefix = tableAliasMapping[tablePrefix.toLowerCase()] || tablePrefix;
+          whereClause = `${actualTablePrefix}.${firstColumnName} IN (${firstColumnValues.join(', ')})`;
         } else {
           // 如果无法确定表前缀，使用原始字段名
           whereClause = `${firstColumnName} IN (${firstColumnValues.join(', ')})`;
@@ -2550,11 +2760,32 @@ function generateSelectSQL(tableName, headers, filteredRows, columnOrder = []) {
 // 根据表格数据生成INSERT SQL
 function generateInsertSQL(tableName, headers, rowsToInsert, columnOrder = []) {
   // 检测是否来自多个表，如果是则阻止生成并提示
-  if (detectMultipleTableSources(headers, columnOrder)) {
+  const detectionResult = detectMultipleTableSources(headers, columnOrder);
+  if (detectionResult.isMultiple) {
     return ''; // 不显示toast，由模态框处理
   }
 
   if (!tableName || !headers || !rowsToInsert || rowsToInsert.length === 0) return '';
+
+  // 如果检测到列来自单一表，则使用检测到的表名，否则使用传入的表名
+  let actualTableName = detectionResult.detectedTable !== 'unknown' ? detectionResult.detectedTable : tableName;
+
+  // 如果存在原始SQL且是联表查询，应用别名映射
+  if (extractedSql && isJoinQuery(extractedSql)) {
+    const tableAliasMapping = analyzeTableAliasMapping(extractedSql);
+    // 检查actualTableName是否是别名，如果是则替换为真实表名
+    // 别名映射中键是小写的别名，值是真实表名
+    const lowerActualTableName = actualTableName.toLowerCase();
+    if (tableAliasMapping[lowerActualTableName]) {
+      actualTableName = tableAliasMapping[lowerActualTableName];
+    } else {
+      // 也检查原始传入的tableName
+      const lowerTableName = tableName.toLowerCase();
+      if (tableAliasMapping[lowerTableName]) {
+        actualTableName = tableAliasMapping[lowerTableName];
+      }
+    }
+  }
 
   // 获取当前显示的列索引（activeCols）
   const visibleHeaderIndices = headers.map((header, index) => activeCols.has(index) ? index : -1).filter(index => index !== -1);
@@ -2598,17 +2829,38 @@ function generateInsertSQL(tableName, headers, rowsToInsert, columnOrder = []) {
     valueSets.push(`(${values.join(', ')})`);
   });
 
-  return `INSERT INTO ${tableName} (${columns}) VALUES\n${valueSets.join(',\n')};`;
+  return `INSERT INTO ${actualTableName} (${columns}) VALUES\n${valueSets.join(',\n')};`;
 }
 
 // 根据过滤结果生成DELETE SQL
 function generateDeleteSQL(tableName, headers, filteredRows, columnOrder = []) {
   // 检测是否来自多个表，如果是则阻止生成并提示
-  if (detectMultipleTableSources(headers, columnOrder)) {
+  const detectionResult = detectMultipleTableSources(headers, columnOrder);
+  if (detectionResult.isMultiple) {
     return ''; // 不显示toast，由模态框处理
   }
 
   if (!tableName || !headers || !filteredRows) return '';
+
+  // 如果检测到列来自单一表，则使用检测到的表名，否则使用传入的表名
+  let actualTableName = detectionResult.detectedTable !== 'unknown' ? detectionResult.detectedTable : tableName;
+
+  // 如果存在原始SQL且是联表查询，应用别名映射
+  if (extractedSql && isJoinQuery(extractedSql)) {
+    const tableAliasMapping = analyzeTableAliasMapping(extractedSql);
+    // 检查actualTableName是否是别名，如果是则替换为真实表名
+    // 别名映射中键是小写的别名，值是真实表名
+    const lowerActualTableName = actualTableName.toLowerCase();
+    if (tableAliasMapping[lowerActualTableName]) {
+      actualTableName = tableAliasMapping[lowerActualTableName];
+    } else {
+      // 也检查原始传入的tableName
+      const lowerTableName = tableName.toLowerCase();
+      if (tableAliasMapping[lowerTableName]) {
+        actualTableName = tableAliasMapping[lowerTableName];
+      }
+    }
+  }
 
   // 获取当前显示的列索引（activeCols）
   const visibleHeaderIndices = headers.map((header, index) => activeCols.has(index) ? index : -1).filter(index => index !== -1);
@@ -2662,9 +2914,12 @@ function generateDeleteSQL(tableName, headers, filteredRows, columnOrder = []) {
       if (extractedSql && isJoinQuery(extractedSql)) {
         // 如果是联表查询，为字段添加表前缀
         const fieldTableMapping = analyzeFieldTableMapping(extractedSql);
-        const tablePrefix = fieldTableMapping[firstColumnName] || 'unknown';
+        let tablePrefix = fieldTableMapping[firstColumnName] || 'unknown';
         if (tablePrefix && tablePrefix !== 'unknown') {
-          whereClause = `${tablePrefix}.${firstColumnName} IN (${firstColumnValues.join(', ')})`;
+          // 如果表前缀是别名，转换为真实表名
+          const tableAliasMapping = analyzeTableAliasMapping(extractedSql);
+          const actualTablePrefix = tableAliasMapping[tablePrefix.toLowerCase()] || tablePrefix;
+          whereClause = `${actualTablePrefix}.${firstColumnName} IN (${firstColumnValues.join(', ')})`;
         } else {
           // 如果无法确定表前缀，使用原始字段名
           whereClause = `${firstColumnName} IN (${firstColumnValues.join(', ')})`;
@@ -2672,12 +2927,12 @@ function generateDeleteSQL(tableName, headers, filteredRows, columnOrder = []) {
       } else {
         whereClause = `${firstColumnName} IN (${firstColumnValues.join(', ')})`;
       }
-      return `DELETE FROM ${tableName} WHERE ${whereClause};`;
+      return `DELETE FROM ${actualTableName} WHERE ${whereClause};`;
     }
   }
 
   // 如果没有过滤条件或无法构建WHERE条件，生成基本的DELETE语句
-  return `DELETE FROM ${tableName};`;
+  return `DELETE FROM ${actualTableName};`;
 }
 
 // 获取当前过滤状态的函数
@@ -2751,6 +3006,15 @@ function openSqlGeneratorModal() {
       console.log('尝试从现有SQL中提取表名:', extractedSql);
       tableNames = extractTableNames(extractedSql);
       console.log('提取到的表名:', tableNames);
+
+      // 使用别名映射解析表名，将别名转换为真实表名
+      const tableAliasMapping = analyzeTableAliasMapping(extractedSql);
+      tableNames = tableNames.map(tableName => {
+        // 检查提取的表名是否是别名，如果是则转换为真实表名
+        // 别名映射中键是小写的别名，值是真实表名
+        return tableAliasMapping[tableName.toLowerCase()] || tableName;
+      });
+      console.log('解析后的表名（已转换别名）:', tableNames);
     } else {
       console.log('没有现有SQL，需要用户输入表名');
     }
@@ -2774,7 +3038,10 @@ function showSqlGeneratorInput(filterState, tableNames = []) {
   let isJoinQueryDetected = false;
 
   if (tableNames && tableNames.length > 0) {
-    defaultTableName = tableNames[0];
+    // 解析别名到真实表名
+    const tableAliasMapping = analyzeTableAliasMapping(extractedSql);
+    // 别名映射中键是小写的别名，值是真实表名
+    defaultTableName = tableAliasMapping[tableNames[0].toLowerCase()] || tableNames[0];
     // 检查是否是联表查询，但根据用户需求，即使检测到联表查询也要自动填充
     if (extractedSql && isJoinQuery(extractedSql)) {
       isJoinQueryDetected = true;
