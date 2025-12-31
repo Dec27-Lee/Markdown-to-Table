@@ -1,24 +1,43 @@
 // 安装扩展时创建右键菜单
 chrome.runtime.onInstalled.addListener(() => {
   console.log('扩展安装/更新，创建右键菜单');
-
-  // 创建右键菜单项，用于解析选中的Markdown表格
-  chrome.contextMenus.create({
-    // 菜单项唯一标识符
-    id: "parse-markdown-table",
-    // 菜单项显示的标题
-    title: "Markdown解析为表格",
-    // 菜单项显示的上下文（选中文本时显示）
-    contexts: ["selection"]
-  }, () => {
-    // 检查是否有错误
-    if (chrome.runtime.lastError) {
-      console.error('创建右键菜单失败:', chrome.runtime.lastError);
-    } else {
-      console.log('右键菜单创建成功');
-    }
-  });
+  createContextMenu();
 });
+
+// 确保每次扩展加载时都检查并创建菜单项
+chrome.runtime.onStartup.addListener(() => {
+  console.log('扩展启动，检查右键菜单');
+  createContextMenu();
+});
+
+// 创建右键菜单的函数
+function createContextMenu() {
+  // 先尝试删除可能已存在的菜单项，避免重复创建错误
+  chrome.contextMenus.remove("parse-markdown-table", () => {
+    // 忽略删除错误（如果菜单项不存在）
+    if (chrome.runtime.lastError) {
+      // 如果删除失败，可能是菜单项不存在，这没关系
+      console.log('菜单项可能不存在，将继续创建:', chrome.runtime.lastError.message);
+    }
+
+    // 创建右键菜单项，用于解析选中的Markdown表格
+    chrome.contextMenus.create({
+      // 菜单项唯一标识符
+      id: "parse-markdown-table",
+      // 菜单项显示的标题
+      title: "Markdown解析为表格",
+      // 菜单项显示的上下文（选中文本时显示）
+      contexts: ["selection"]
+    }, () => {
+      // 检查是否有错误
+      if (chrome.runtime.lastError) {
+        console.error('创建右键菜单失败:', chrome.runtime.lastError);
+      } else {
+        console.log('右键菜单创建成功');
+      }
+    });
+  });
+}
 
 // 处理右键菜单点击事件
 chrome.contextMenus.onClicked.addListener((info, tab) => {
@@ -45,17 +64,17 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       if (chrome.runtime.lastError) {
         console.error('执行脚本失败:', chrome.runtime.lastError);
         // 如果executeScript失败，尝试使用info.selectionText
-        handleSelectedText(info.selectionText || '');
+        handleSelectedText(info.selectionText || '', tab);
         return;
       }
 
       // 检查脚本执行结果
       if (results && results[0] && results[0].result) {
         const selectedText = results[0].result;
-        handleSelectedText(selectedText);
+        handleSelectedText(selectedText, tab);
       } else {
         console.log('没有获取到选中文本，使用info.selectionText');
-        handleSelectedText(info.selectionText || '');
+        handleSelectedText(info.selectionText || '', tab);
       }
     });
   }
@@ -105,7 +124,7 @@ function getSelectedTextWithFormatting() {
 }
 
 // 处理选中的文本
-function handleSelectedText(selectedText) {
+function handleSelectedText(selectedText, tab) {
   console.log('获取到的选中文本:', selectedText);
   console.log('文本长度:', selectedText.length);
   console.log('包含换行符:', selectedText.includes('\n'));
@@ -132,12 +151,14 @@ function handleSelectedText(selectedText) {
 
     console.log('数据已保存到storage，文本长度:', selectedText.length);
 
-    // 创建新标签页打开工具页面
+    // 创建新标签页打开工具页面，紧邻当前标签页
     chrome.tabs.create({
       // 获取工具页面的URL
       url: chrome.runtime.getURL("tool/index.html"),
       // 设置新标签页为活动状态
-      active: true
+      active: true,
+      // 在当前标签页的右侧创建新标签页
+      index: tab ? tab.index + 1 : undefined
     });
   });
 }

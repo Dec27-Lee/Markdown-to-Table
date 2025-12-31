@@ -97,7 +97,7 @@ function clearAllData() {
 
 // 从文本中提取SQL语句，优化处理复杂mysql命令行输出
 function extractSql(text) {
-  console.log('开始提取SQL语句');
+  console.log('正在尝试从输入文本中提取SQL语句...');
 
   // 1. 清理文本，移除结果统计信息和无效行
   let cleanedText = text;
@@ -205,7 +205,7 @@ function extractSql(text) {
   // 3. 如果有有效的SQL命令，返回最后一个
   if (validSqlCommands.length > 0) {
     const finalSql = validSqlCommands[validSqlCommands.length - 1].trim();
-    console.log('最终选择的SQL:', finalSql);
+    console.log('提取SQL成功:', finalSql);
     return finalSql;
   }
 
@@ -278,11 +278,11 @@ function extractSql(text) {
   // 返回最后一个有效的SQL语句
   if (sqlStatements.length > 0) {
     const finalSql = sqlStatements[sqlStatements.length - 1];
-    console.log('最终选择的纯文本SQL:', finalSql);
+    console.log('从纯文本提取SQL成功:', finalSql);
     return finalSql;
   }
 
-  console.log('未提取到SQL语句');
+  console.log('未识别到SQL语句');
   return '';
 }
 
@@ -480,7 +480,7 @@ function displaySql(sql) {
     sqlDisplay.textContent = compressedSql;
     sqlDisplay.style.display = 'block';
     sqlDisplay.style.cursor = 'pointer';
-    sqlDisplay.style.title = '点击查看完整SQL';
+    sqlDisplay.title = '点击查看完整SQL语句';
     noSqlMessage.style.display = 'none';
     copySqlBtn.style.display = 'inline-block';
 

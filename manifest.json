@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Markdown表格解析器",
-  "version": "3.0.5",
+  "version": "3.1.0",
   "description": "快速解析Markdown表格为可视化表格，支持针对解析结果的多样化操作",
   "permissions": [
     "activeTab",
@@ -38,5 +38,8 @@
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
   }
 }

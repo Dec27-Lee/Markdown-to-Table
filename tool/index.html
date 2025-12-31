@@ -1138,7 +1138,7 @@
       <h2>Markdown转表格</h2>
       <h3 class="version-area" id="versionArea">
         <span class="version-label">版本号</span>
-        <span id="version" class="version-number">v3.0.5</span>
+        <span id="version" class="version-number">v3.1.0</span>
       </h3>
       <!-- 主题切换按钮 -->
       <button class="btn" id="toggleThemeBtn" style="width:100%; margin-bottom:10px;">🌓 切换主题模式</button>
@@ -1173,18 +1173,23 @@
 
     <!-- SQL展示区域 -->
     <div class="sql-display-container"
-      style="padding: 20px; background: var(--panel); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border-bottom: 1px solid var(--border); box-shadow: var(--shadow-sm);">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-        <h3 style="margin: 0; font-size: 16px; color: var(--primary);">🔍 识别到的SQL查询</h3>
-        <button id="copySqlBtn" class="btn" style="font-size: 12px; padding: 6px 12px;" onclick="copySql()">📋
+      style="padding: 12px 16px; background: var(--panel); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border-bottom: 1px solid var(--border); box-shadow: var(--shadow-sm);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <h3 style="margin: 0; font-size: 14px; color: var(--primary);">🔍 识别到的SQL</h3>
+        <button id="copySqlBtn" class="btn" style="font-size: 11px; padding: 4px 8px;" onclick="copySql()"
+          title="复制解析出的SQL语句到剪贴板">📋
           复制SQL</button>
       </div>
       <div id="sqlDisplay"
-        style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px; font-family: 'Fira Code', 'SF Mono', Monaco, monospace; font-size: 13px; line-height: 1.5; max-height: 200px; overflow: auto; white-space: pre-wrap; word-break: break-word; display: none;">
+        style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-family: 'Fira Code', 'SF Mono', Monaco, monospace; font-size: 12px; line-height: 1.4; max-height: 150px; overflow: auto; white-space: pre-wrap; word-break: break-word; display: none;">
       </div>
       <div id="noSqlMessage"
-        style="color: var(--text-secondary); font-size: 13px; text-align: center; padding: 20px; display: block;">
-        未识别到SQL查询</div>
+        style="color: var(--text-secondary); font-size: 12px; text-align: center; padding: 12px; display: block;">
+        <div style="line-height: 1.4;">
+          <span style="font-weight: 500;">🔍 未识别到SQL</span><br>
+          <small style="opacity: 0.8;">同时选中包含SQL查询的文本并复制到上方输入框，即可自动解析并显示SQL语句</small>
+        </div>
+      </div>
     </div>
 
     <!-- 行搜索和统计信息区域 -->
@@ -1247,10 +1252,10 @@
   <div class="modal-mask" id="sqlOverlay" style="z-index: 99999;">
     <div class="modal-box">
       <div class="modal-header">
-        <h3 style="margin:0; font-size:16px; font-weight:600;">🔍 SQL 查询详情</h3>
+        <h3 style="margin:0; font-size:15px; font-weight:600;">🔍 SQL语句预览</h3>
         <div class="btn-group">
           <!-- 复制SQL按钮 -->
-          <button class="btn" id="copySqlModalBtn" onclick="copySqlFromModal()">📋 复制SQL</button>
+          <button class="btn" id="copySqlModalBtn" onclick="copySqlFromModal()" title="复制SQL语句到剪贴板">📋 复制SQL</button>
           <!-- 关闭SQL模态框按钮 -->
           <button class="btn" id="closeSqlModalBtn" style="background:rgba(239, 68, 68, 0.1); color:#ef4444;"
             onclick="closeSqlModal()">关闭</button>
@@ -1259,7 +1264,7 @@
       <!-- SQL显示区域 -->
       <div class="modal-body">
         <pre id="sqlModalDisplay"
-          style="font-family: 'Fira Code', 'SF Mono', Monaco, monospace; font-size: 14px; line-height: 1.6;"></pre>
+          style="font-family: 'Fira Code', 'SF Mono', Monaco, monospace; font-size: 13px; line-height: 1.5; margin: 0;"></pre>
       </div>
     </div>
   </div>
@@ -1268,7 +1273,7 @@
   <div class="modal-mask" id="versionOverlay">
     <div class="modal-box version-modal">
       <div class="modal-header">
-        <h3 style="margin:0; font-size:20px; font-weight:600;">版本信息 v3.0.5</h3>
+        <h3 style="margin:0; font-size:20px; font-weight:600;">版本信息 v3.1.0</h3>
         <!-- 关闭版本模态框按钮 -->
         <button class="btn close-btn" id="closeVersionModalBtn">✕</button>
       </div>
@@ -1277,9 +1282,9 @@
         <div class="version-content">
           <h4 style="margin: 16px 0 12px 0; color: var(--primary); font-size: 18px;">更新内容：</h4>
           <ul style="margin: 0 0 20px 20px; padding-left: 10px; font-size: 18px;">
-            <li style="margin-bottom: 8px;">[新增] 内容搜索支持指定某个字段进行内容筛选</li>
-            <li style="margin-bottom: 8px;">[新增] 支持在下拉菜单中搜索字段</li>
-            <li style="margin-bottom: 8px;">[优化] 页面UI样式优化</li>
+            <li style="margin-bottom: 8px;">[新增] 支持识别选中文本的SQL，支持格式化并复制SQL</li>
+            <li style="margin-bottom: 8px;">[优化] 优化了新建标签页的打开方式，默认在当前操作页旁边打开</li>
+            <li style="margin-bottom: 8px;">[修复] 修复表格的高度显示问题</li>
           </ul>
 
           <div class="version-link-section">
@@ -1299,6 +1304,7 @@
 
   <!-- 引入外部JavaScript文件 -->
   <script src="tool.js"></script>
+  <script src="height-adaptation.js"></script>
 </body>
 
 </html>
