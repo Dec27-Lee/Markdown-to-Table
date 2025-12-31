@@ -612,14 +612,14 @@
       position: fixed;
       top: 10%;
       left: 50%;
-      transform: translateX(-50%) translateY(-50%);
+      transform: translateX(-50%) translateY(0);
       background: var(--success);
       color: white;
       padding: 14px 32px;
       border-radius: 12px;
       font-weight: 600;
       display: none;
-      z-index: 100000;
+      z-index: 200000;
       box-shadow: 0 15px 30px rgba(16, 185, 129, 0.3);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
@@ -650,6 +650,36 @@
       outline: none;
       border-color: var(--primary);
       box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+    }
+
+    #generateSqlBtn {
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: var(--text);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    #generateSqlBtn:hover {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(96, 165, 250, 0.25);
+    }
+
+    #generateSqlBtn:active {
+      transform: translateY(0);
     }
 
     #rowSearch {
@@ -1209,6 +1239,9 @@
       </div>
       <!-- 行搜索输入框 -->
       <input type="text" id="rowSearch" class="search-input" placeholder="🔍 搜索行内容...">
+      <!-- SQL生成按钮 -->
+      <button id="generateSqlBtn" title="根据当前表格数据生成SQL语句">🔧
+        生成SQL</button>
       <!-- 统计信息显示 -->
       <div class="stats" id="stat">等待数据输入...</div>
     </div>

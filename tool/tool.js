@@ -47,6 +47,14 @@ let sortInfo = { idx: -1, asc: true, state: 'none' }; // state: 'none' | 'asc' |
 // 存储提取到的SQL语句
 let extractedSql = '';
 
+// SQL生成缓存相关变量
+let sqlGenerationCache = {
+  lastFilterState: null,
+  cachedSelectSql: '',
+  cachedInsertSql: '',
+  cachedDeleteSql: ''
+};
+
 // 拖拽相关变量
 let dragSrcEl = null;
 let columnOrder = []; // 存储列的顺序，初始为自然顺序
@@ -597,6 +605,19 @@ document.addEventListener('DOMContentLoaded', () => {
       copySqlFromModal();
     });
     console.log('模态框复制按钮事件绑定成功');
+  }
+
+  // 为生成SQL按钮添加事件监听
+  const generateSqlBtn = document.getElementById('generateSqlBtn');
+  if (generateSqlBtn) {
+    console.log('找到生成SQL按钮，添加事件监听');
+    generateSqlBtn.removeEventListener('click', openSqlGeneratorModal);
+    generateSqlBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      console.log('生成SQL按钮被点击');
+      openSqlGeneratorModal();
+    });
+    console.log('生成SQL按钮事件绑定成功');
   }
 });
 
@@ -1750,15 +1771,7 @@ function showToast(msg) {
   setTimeout(() => t.style.display = 'none', 1500);
 }
 
-// 转义HTML特殊字符
-function escapeHtml(text) {
-  // 创建一个临时div元素
-  const div = document.createElement('div');
-  // 设置textContent会自动转义HTML特殊字符
-  div.textContent = text;
-  // 返回转义后的HTML内容
-  return div.innerHTML;
-}
+
 
 // 显示版本信息模态框
 function showVersion() {
@@ -2118,3 +2131,1177 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 });
+
+// ****************************************************************
+// SQL生成器功能相关函数
+// ****************************************************************
+
+// 从SQL语句中提取表名的函数
+function extractTableNames(sql) {
+  if (!sql) return [];
+
+  const tableNames = [];
+
+  // 提取FROM子句后的表名（包括逗号分隔的多表和JOIN中的表）
+  // 使用大小写不敏感的正则表达式查找关键词，但保留原始SQL中的表名大小写
+  const fromRegex = /\bFROM\s+([^\s;][^;]*)/gi;
+  let fromMatch;
+  while ((fromMatch = fromRegex.exec(sql)) !== null) {
+    let fromPart = fromMatch[1];
+
+    // 处理括号中的子查询，只取最外层的表名部分
+    if (fromPart.includes('(')) {
+      // 简单处理括号，移除子查询部分，只保留表名
+      let parenLevel = 0;
+      let cleanedPart = '';
+      for (let char of fromPart) {
+        if (char === '(') parenLevel++;
+        else if (char === ')') parenLevel--;
+        else if (parenLevel === 0) cleanedPart += char;
+      }
+      fromPart = cleanedPart;
+    }
+
+    fromPart = fromPart.replace(/[\r\n\t]/g, ' ').trim();
+
+    // 处理可能的多个表（逗号分隔或JOIN连接的表）
+    // 按逗号分割，但要避免分割包含在括号内的内容
+    const tables = [];
+    let currentTable = '';
+    let parenLevel = 0;
+
+    for (let char of fromPart) {
+      if (char === '(') parenLevel++;
+      else if (char === ')') parenLevel--;
+      else if (char === ',' && parenLevel === 0) {
+        tables.push(currentTable.trim());
+        currentTable = '';
+        continue;
+      }
+      currentTable += char;
+    }
+    if (currentTable.trim()) {
+      tables.push(currentTable.trim());
+    }
+
+    for (let i = 0; i < tables.length; i++) {
+      const table = tables[i].split(/\s/)[0].replace(/[;\(\)]/g, '').trim(); // 只取表名部分，去除别名
+      const upperTable = table.toUpperCase();
+
+      if (table &&
+        upperTable !== 'INNER' &&
+        upperTable !== 'LEFT' &&
+        upperTable !== 'RIGHT' &&
+        upperTable !== 'FULL' &&
+        upperTable !== 'OUTER' &&
+        upperTable !== 'CROSS' &&
+        upperTable !== 'JOIN' &&
+        !upperTable.endsWith('JOIN')) {
+        if (!tableNames.includes(table)) {
+          tableNames.push(table);
+        }
+      }
+    }
+  }
+
+  // 提取JOIN子句中的表名
+  const joinRegex = /\b(INNER\s+|LEFT\s+|RIGHT\s+|FULL\s+|CROSS\s+)?JOIN\s+([^\s\(\);]+)/gi;
+  let joinMatch;
+  while ((joinMatch = joinRegex.exec(sql)) !== null) {
+    const joinTable = joinMatch[2].split(/\s/)[0].replace(/[;\(\)]/g, '');
+    if (joinTable && !tableNames.includes(joinTable)) {
+      tableNames.push(joinTable);
+    }
+  }
+
+  // 提取INSERT语句中的表名
+  const insertRegex = /\bINSERT\s+INTO\s+([^\s\(\);]+)/i;
+  const insertMatch = sql.match(insertRegex);
+  if (insertMatch && insertMatch[1]) {
+    const tableName = insertMatch[1].replace(/[;\(\)]/g, '');
+    if (tableName && !tableNames.includes(tableName)) {
+      tableNames.push(tableName);
+    }
+  }
+
+  // 提取UPDATE语句中的表名
+  const updateRegex = /\bUPDATE\s+([^\s;]+)/i;
+  const updateMatch = sql.match(updateRegex);
+  if (updateMatch && updateMatch[1]) {
+    const tableName = updateMatch[1].replace(/[;\(\)]/g, '');
+    if (tableName && !tableNames.includes(tableName)) {
+      tableNames.push(tableName);
+    }
+  }
+
+  // 提取DELETE语句中的表名
+  const deleteRegex = /\bDELETE\s+FROM\s+([^\s;]+)/i;
+  const deleteMatch = sql.match(deleteRegex);
+  if (deleteMatch && deleteMatch[1]) {
+    const tableName = deleteMatch[1].replace(/[;\(\)]/g, '');
+    if (tableName && !tableNames.includes(tableName)) {
+      tableNames.push(tableName);
+    }
+  }
+
+  return tableNames;
+}
+
+// 检测是否为联表查询
+function isJoinQuery(sql) {
+  if (!sql) return false;
+
+  const sqlUpper = sql.toUpperCase();
+
+  // 检查是否存在JOIN关键字
+  const joinKeywords = ['INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'FULL JOIN', 'CROSS JOIN', 'JOIN'];
+
+  for (const keyword of joinKeywords) {
+    if (sqlUpper.includes(keyword)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// 获取完整的FROM子句（包含JOIN部分）
+function getFullFromClause(sql) {
+  if (!sql) return '';
+
+  const sqlUpper = sql.toUpperCase();
+
+  // 查找FROM子句开始位置
+  const fromIndex = sqlUpper.indexOf('FROM');
+  if (fromIndex === -1) return '';
+
+  // 查找FROM子句结束位置（在WHERE、GROUP BY、HAVING、ORDER BY、LIMIT之前）
+  const afterFrom = sql.substring(fromIndex + 4); // 跳过'FROM'
+
+  // 找到第一个关键子句的位置
+  const clauseKeywords = ['WHERE', 'GROUP BY', 'HAVING', 'ORDER BY', 'LIMIT', ';'];
+  let endIndex = afterFrom.length;
+
+  for (const keyword of clauseKeywords) {
+    const keywordIndex = afterFrom.toUpperCase().indexOf(keyword);
+    if (keywordIndex !== -1 && keywordIndex < endIndex) {
+      endIndex = keywordIndex;
+    }
+  }
+
+  // 提取FROM子句部分
+  const fromClause = afterFrom.substring(0, endIndex).trim();
+
+  return fromClause;
+}
+
+// 分析SQL中的字段与表的映射关系
+function analyzeFieldTableMapping(sql) {
+  if (!sql) return {};
+
+  const mapping = {};
+  const sqlUpper = sql.toUpperCase();
+
+  // 提取SELECT子句中的字段和别名
+  const selectMatch = sqlUpper.match(/SELECT\s+(.*?)\s+FROM/i);
+  if (!selectMatch) return mapping;
+
+  let selectFields = selectMatch[1];
+
+  // 移除嵌套查询的可能干扰
+  let parenCount = 0;
+  let cleanSelectFields = '';
+  for (let i = 0; i < selectFields.length; i++) {
+    const char = selectFields[i];
+    if (char === '(') parenCount++;
+    else if (char === ')') parenCount--;
+    if (parenCount >= 0) cleanSelectFields += char;
+  }
+  selectFields = cleanSelectFields;
+
+  // 分割字段，考虑AS关键字和别名
+  const fieldList = selectFields.split(',');
+
+  for (let field of fieldList) {
+    field = field.trim();
+
+    // 处理 AS 别名的情况
+    if (field.toUpperCase().includes(' AS ')) {
+      const parts = field.split(/\s+AS\s+/i);
+      if (parts.length >= 2) {
+        const fieldName = parts[0].trim();
+        const aliasName = parts[1].trim().replace(/[`"]/g, ''); // 移除可能的引号
+
+        // 提取字段中的表前缀
+        let tablePrefix = '';
+        if (fieldName.includes('.')) {
+          tablePrefix = fieldName.split('.')[0].trim();
+        }
+
+        mapping[aliasName] = tablePrefix;
+      }
+    } else {
+      // 处理没有AS关键字但有空格作为别名的情况
+      const fieldParts = field.trim().split(/\s+/);
+      if (fieldParts.length > 1 && !field.toUpperCase().includes('FUNCTION') &&
+        !field.toUpperCase().includes('COUNT') && !field.toUpperCase().includes('SUM') &&
+        !field.toUpperCase().includes('AVG') && !field.toUpperCase().includes('MAX') &&
+        !field.toUpperCase().includes('MIN')) {
+        // 这可能是 "field alias" 的形式
+        const fieldName = fieldParts[0].trim();
+        const aliasName = fieldParts[1].trim().replace(/[`"]/g, '');
+
+        let tablePrefix = '';
+        if (fieldName.includes('.')) {
+          tablePrefix = fieldName.split('.')[0].trim();
+        }
+
+        mapping[aliasName] = tablePrefix;
+      } else {
+        // 直接字段名
+        const cleanField = field.trim().replace(/[`"]/g, '');
+        let tablePrefix = '';
+        if (cleanField.includes('.')) {
+          tablePrefix = cleanField.split('.')[0].trim();
+        }
+
+        // 如果字段有表前缀，使用去掉前缀的字段名作为映射键
+        if (cleanField.includes('.')) {
+          const fieldNameWithoutPrefix = cleanField.split('.')[1].trim();
+          mapping[fieldNameWithoutPrefix] = tablePrefix;
+        } else {
+          // 没有表前缀的字段，暂时标记为未知表
+          mapping[cleanField] = tablePrefix || 'unknown';
+        }
+      }
+    }
+  }
+
+  return mapping;
+}
+
+// 检测当前显示的列是否来自不同表
+function detectMultipleTableSources(headers, columnOrder = []) {
+  if (!extractedSql || !isJoinQuery(extractedSql)) {
+    // 如果没有原始SQL或不是联表查询，返回false
+    return false;
+  }
+
+  // 获取当前显示的列索引（activeCols）
+  const visibleHeaderIndices = headers.map((header, index) => activeCols.has(index) ? index : -1).filter(index => index !== -1);
+
+  // 根据columnOrder对可见列索引进行排序
+  if (columnOrder && columnOrder.length > 0) {
+    visibleHeaderIndices.sort((a, b) => {
+      const aOrder = columnOrder.indexOf(a);
+      const bOrder = columnOrder.indexOf(b);
+      return aOrder - bOrder;
+    });
+  } else {
+    // 如果没有columnOrder，则按自然顺序排序
+    visibleHeaderIndices.sort((a, b) => a - b);
+  }
+
+  // 根据排序后的索引获取列名
+  const visibleHeaders = visibleHeaderIndices.map(index => headers[index]);
+
+  // 如果没有显示列，返回false
+  if (visibleHeaders.length === 0) {
+    return false;
+  }
+
+  // 分析字段与表的映射关系
+  const fieldTableMapping = analyzeFieldTableMapping(extractedSql);
+
+  // 获取显示列对应的表名
+  const tableSources = [];
+  for (const header of visibleHeaders) {
+    // 检查字段映射中是否存在该字段
+    const tableFromMapping = fieldTableMapping[header];
+    if (tableFromMapping && tableFromMapping !== 'unknown') {
+      tableSources.push(tableFromMapping);
+    } else {
+      // 如果字段映射中没有，尝试直接查找带前缀的字段名
+      let found = false;
+      for (const [mappedField, mappedTable] of Object.entries(fieldTableMapping)) {
+        if (mappedField === header) {
+          if (mappedTable && mappedTable !== 'unknown') {
+            tableSources.push(mappedTable);
+            found = true;
+            break;
+          }
+        }
+      }
+      if (!found) {
+        // 如果还是找不到，尝试从原始SQL中查找
+        const sqlUpper = extractedSql.toUpperCase();
+        const selectMatch = sqlUpper.match(/SELECT\s+(.*?)\s+FROM/i);
+        if (selectMatch) {
+          const selectFields = selectMatch[1];
+          // 查找字段名是否包含表前缀
+          const fieldPattern = new RegExp(`([a-zA-Z0-9_]+)\\.(${header})`, 'i');
+          const match = selectFields.match(fieldPattern);
+          if (match) {
+            tableSources.push(match[1]);
+          } else {
+            // 如果没有找到表前缀，标记为未知表
+            tableSources.push('unknown');
+          }
+        }
+      }
+    }
+  }
+
+  // 检查是否有多个不同的表来源
+  const uniqueTables = [...new Set(tableSources)];
+
+  console.log('检测到的表来源:', uniqueTables, '字段映射:', fieldTableMapping, '显示列:', visibleHeaders);
+
+  // 如果有多个不同的表来源（排除'unknown'），返回true
+  const actualTables = uniqueTables.filter(table => table !== 'unknown');
+  return actualTables.length > 1;
+}
+
+// 根据表格数据生成SELECT SQL
+function generateSelectSQL(tableName, headers, filteredRows, columnOrder = []) {
+  if (!tableName || !headers || !filteredRows) return '';
+
+  // 获取当前显示的列索引（activeCols）
+  const visibleHeaderIndices = headers.map((header, index) => activeCols.has(index) ? index : -1).filter(index => index !== -1);
+
+  // 根据columnOrder对可见列索引进行排序
+  if (columnOrder && columnOrder.length > 0) {
+    visibleHeaderIndices.sort((a, b) => {
+      const aOrder = columnOrder.indexOf(a);
+      const bOrder = columnOrder.indexOf(b);
+      return aOrder - bOrder;
+    });
+  } else {
+    // 如果没有columnOrder，则按自然顺序排序
+    visibleHeaderIndices.sort((a, b) => a - b);
+  }
+
+  // 根据排序后的索引获取列名
+  const visibleHeaders = visibleHeaderIndices.map(index => headers[index]);
+  const selectedColumns = visibleHeaders.length > 0 ? visibleHeaders.join(', ') : '*';
+
+  // 检测原始SQL是否为联表查询
+  let fromClause = tableName;
+  if (extractedSql && isJoinQuery(extractedSql)) {
+    // 如果是联表查询，使用原始SQL的FROM子句
+    fromClause = getFullFromClause(extractedSql);
+    console.log('检测到联表查询，使用原始FROM子句:', fromClause);
+  } else {
+    console.log('非联表查询，使用单表:', tableName);
+  }
+
+  // 获取第一列的名称（可见列中的第一列）
+  let firstColumnName = null;
+  if (visibleHeaders.length > 0) {
+    firstColumnName = visibleHeaders[0]; // 使用第一个可见列
+  } else if (headers.length > 0) {
+    firstColumnName = headers[0]; // 如果没有可见列，则使用第一个列
+  }
+
+  // 如果有过滤条件，使用过滤后的行构建WHERE IN条件
+  if (filteredRows.length > 0 && firstColumnName) {
+    // 获取第一列的所有值
+    const firstColumnValues = filteredRows.map(row => {
+      // 找到第一列在行中的索引
+      const firstColIndex = headers.findIndex(header => header === firstColumnName);
+      if (firstColIndex !== -1 && row[firstColIndex] !== undefined) {
+        let value = row[firstColIndex];
+        // 根据值的类型进行适当的格式化
+        if (value === null || value === undefined) {
+          return 'NULL';
+        } else if (typeof value === 'string') {
+          // 转义字符串值
+          return `'${value.replace(/'/g, "''")}'`;
+        } else {
+          return value;
+        }
+      }
+      return null;
+    }).filter(val => val !== null); // 过滤掉null值
+
+    if (firstColumnValues.length > 0) {
+      let whereClause = '';
+      if (extractedSql && isJoinQuery(extractedSql)) {
+        // 如果是联表查询，为字段添加表前缀
+        const fieldTableMapping = analyzeFieldTableMapping(extractedSql);
+        const tablePrefix = fieldTableMapping[firstColumnName] || 'unknown';
+        if (tablePrefix && tablePrefix !== 'unknown') {
+          whereClause = `${tablePrefix}.${firstColumnName} IN (${firstColumnValues.join(', ')})`;
+        } else {
+          // 如果无法确定表前缀，使用原始字段名
+          whereClause = `${firstColumnName} IN (${firstColumnValues.join(', ')})`;
+        }
+      } else {
+        whereClause = `${firstColumnName} IN (${firstColumnValues.join(', ')})`;
+      }
+      return `SELECT ${selectedColumns} FROM ${fromClause} WHERE ${whereClause};`;
+    }
+  }
+
+  // 如果没有过滤条件或无法构建WHERE条件，生成基本的SELECT语句
+  return `SELECT ${selectedColumns} FROM ${fromClause};`;
+}
+
+// 根据表格数据生成INSERT SQL
+function generateInsertSQL(tableName, headers, rowsToInsert, columnOrder = []) {
+  // 检测是否来自多个表，如果是则阻止生成并提示
+  if (detectMultipleTableSources(headers, columnOrder)) {
+    return ''; // 不显示toast，由模态框处理
+  }
+
+  if (!tableName || !headers || !rowsToInsert || rowsToInsert.length === 0) return '';
+
+  // 获取当前显示的列索引（activeCols）
+  const visibleHeaderIndices = headers.map((header, index) => activeCols.has(index) ? index : -1).filter(index => index !== -1);
+
+  // 根据columnOrder对可见列索引进行排序
+  if (columnOrder && columnOrder.length > 0) {
+    visibleHeaderIndices.sort((a, b) => {
+      const aOrder = columnOrder.indexOf(a);
+      const bOrder = columnOrder.indexOf(b);
+      return aOrder - bOrder;
+    });
+  } else {
+    // 如果没有columnOrder，则按自然顺序排序
+    visibleHeaderIndices.sort((a, b) => a - b);
+  }
+
+  // 根据排序后的索引获取列名
+  const visibleHeaders = visibleHeaderIndices.map(index => headers[index]);
+  // 获取对应的列索引
+  const visibleIndices = visibleHeaderIndices;
+
+  const columns = visibleHeaders.join(', ');
+  const valueSets = [];
+
+  rowsToInsert.forEach(row => {
+    // 只取可见列的值
+    const visibleValues = visibleIndices.map(index => row[index]);
+
+    const values = visibleValues.map(cell => {
+      // 根据值的类型进行适当的转义
+      if (cell === null || cell === undefined) {
+        return 'NULL';
+      } else if (typeof cell === 'string') {
+        // 简单的字符串转义，实际应用中可能需要更安全的转义方法
+        return `'${cell.replace(/'/g, "''")}'`;
+      } else {
+        return cell;
+      }
+    });
+
+    valueSets.push(`(${values.join(', ')})`);
+  });
+
+  return `INSERT INTO ${tableName} (${columns}) VALUES\n${valueSets.join(',\n')};`;
+}
+
+// 根据过滤结果生成DELETE SQL
+function generateDeleteSQL(tableName, headers, filteredRows, columnOrder = []) {
+  // 检测是否来自多个表，如果是则阻止生成并提示
+  if (detectMultipleTableSources(headers, columnOrder)) {
+    return ''; // 不显示toast，由模态框处理
+  }
+
+  if (!tableName || !headers || !filteredRows) return '';
+
+  // 获取当前显示的列索引（activeCols）
+  const visibleHeaderIndices = headers.map((header, index) => activeCols.has(index) ? index : -1).filter(index => index !== -1);
+
+  // 根据columnOrder对可见列索引进行排序
+  if (columnOrder && columnOrder.length > 0) {
+    visibleHeaderIndices.sort((a, b) => {
+      const aOrder = columnOrder.indexOf(a);
+      const bOrder = columnOrder.indexOf(b);
+      return aOrder - bOrder;
+    });
+  } else {
+    // 如果没有columnOrder，则按自然顺序排序
+    visibleHeaderIndices.sort((a, b) => a - b);
+  }
+
+  // 根据排序后的索引获取列名
+  const visibleHeaders = visibleHeaderIndices.map(index => headers[index]);
+
+  // 获取第一列的名称（可见列中的第一列）
+  let firstColumnName = null;
+  if (visibleHeaders.length > 0) {
+    firstColumnName = visibleHeaders[0]; // 使用第一个可见列
+  } else if (headers.length > 0) {
+    firstColumnName = headers[0]; // 如果没有可见列，则使用第一个列
+  }
+
+  // 如果有过滤条件，使用过滤后的行构建WHERE IN条件
+  if (filteredRows.length > 0 && firstColumnName) {
+    // 获取第一列的所有值
+    const firstColumnValues = filteredRows.map(row => {
+      // 找到第一列在行中的索引
+      const firstColIndex = headers.findIndex(header => header === firstColumnName);
+      if (firstColIndex !== -1 && row[firstColIndex] !== undefined) {
+        let value = row[firstColIndex];
+        // 根据值的类型进行适当的格式化
+        if (value === null || value === undefined) {
+          return 'NULL';
+        } else if (typeof value === 'string') {
+          // 转义字符串值
+          return `'${value.replace(/'/g, "''")}'`;
+        } else {
+          return value;
+        }
+      }
+      return null;
+    }).filter(val => val !== null); // 过滤掉null值
+
+    if (firstColumnValues.length > 0) {
+      let whereClause = '';
+      if (extractedSql && isJoinQuery(extractedSql)) {
+        // 如果是联表查询，为字段添加表前缀
+        const fieldTableMapping = analyzeFieldTableMapping(extractedSql);
+        const tablePrefix = fieldTableMapping[firstColumnName] || 'unknown';
+        if (tablePrefix && tablePrefix !== 'unknown') {
+          whereClause = `${tablePrefix}.${firstColumnName} IN (${firstColumnValues.join(', ')})`;
+        } else {
+          // 如果无法确定表前缀，使用原始字段名
+          whereClause = `${firstColumnName} IN (${firstColumnValues.join(', ')})`;
+        }
+      } else {
+        whereClause = `${firstColumnName} IN (${firstColumnValues.join(', ')})`;
+      }
+      return `DELETE FROM ${tableName} WHERE ${whereClause};`;
+    }
+  }
+
+  // 如果没有过滤条件或无法构建WHERE条件，生成基本的DELETE语句
+  return `DELETE FROM ${tableName};`;
+}
+
+// 获取当前过滤状态的函数
+function getCurrentFilterState() {
+  const q = document.getElementById('rowSearch').value.toLowerCase();
+  const currentSearchField = document.getElementById('selectedField').textContent;
+
+  return {
+    searchQuery: q,
+    searchField: currentSearchField,
+    activeCols: Array.from(activeCols),
+    columnOrder: [...columnOrder], // 包含列顺序信息
+    filteredRows: getFilteredRows() // 需要一个函数来获取当前过滤后的行
+  };
+}
+
+// 获取当前过滤后的行
+function getFilteredRows() {
+  const q = document.getElementById('rowSearch').value.toLowerCase();
+  const currentSearchField = document.getElementById('selectedField').textContent;
+
+  // 复用渲染函数中的过滤逻辑
+  let filteredRows = rows.filter(r => {
+    if (!q) return true;
+
+    if (currentSearchField === '全部字段') {
+      // 在所有激活列中搜索
+      return r.some((cell, idx) => {
+        // 只检查活跃列
+        if (!activeCols.has(idx)) return false;
+        const cellText = cell ? String(cell).toLowerCase() : '';
+        return cellText.includes(q);
+      });
+    } else {
+      // 只在选定字段中搜索
+      const fieldIndex = headers.indexOf(currentSearchField);
+      // 检查字段是否存在且在激活列中
+      if (fieldIndex === -1 || !activeCols.has(fieldIndex)) return false;
+      const cellText = r[fieldIndex] ? String(r[fieldIndex]).toLowerCase() : '';
+      return cellText.includes(q);
+    }
+  });
+
+  return filteredRows;
+}
+
+// 比较过滤状态是否相同
+function isFilterStateEqual(state1, state2) {
+  if (!state1 || !state2) return false;
+
+  return state1.searchQuery === state2.searchQuery &&
+    state1.searchField === state2.searchField &&
+    JSON.stringify(state1.activeCols) === JSON.stringify(state2.activeCols) &&
+    JSON.stringify(state1.columnOrder) === JSON.stringify(state2.columnOrder) &&
+    state1.filteredRows.length === state2.filteredRows.length &&
+    state1.tableName === state2.tableName; // 比较表名
+}
+
+// 打开SQL生成器模态框
+function openSqlGeneratorModal() {
+  console.log('openSqlGeneratorModal函数被调用');
+
+  try {
+    // 获取当前过滤状态
+    const filterState = getCurrentFilterState();
+    console.log('获取过滤状态成功:', filterState);
+
+    // 尝试从现有SQL中提取表名
+    let tableNames = [];
+    if (extractedSql) {
+      console.log('尝试从现有SQL中提取表名:', extractedSql);
+      tableNames = extractTableNames(extractedSql);
+      console.log('提取到的表名:', tableNames);
+    } else {
+      console.log('没有现有SQL，需要用户输入表名');
+    }
+
+    // 始终显示SQL生成器模态框，让模态框处理是否有表名的情况
+    showSqlGeneratorInput(filterState, tableNames);
+    console.log('SQL生成器输入模态框已打开');
+  } catch (error) {
+    console.error('openSqlGeneratorModal函数执行出错:', error);
+    alert('打开SQL生成器时出现错误，请查看控制台了解详细信息');
+  }
+}
+
+// 显示SQL生成器输入界面
+function showSqlGeneratorInput(filterState, tableNames = []) {
+  console.log('showSqlGeneratorInput函数被调用', { filterState, tableNames });
+
+  // 确定默认表名
+  let defaultTableName = '';
+  let canAutoFill = false;
+  let isJoinQueryDetected = false;
+
+  if (tableNames && tableNames.length > 0) {
+    defaultTableName = tableNames[0];
+    // 检查是否是联表查询，但根据用户需求，即使检测到联表查询也要自动填充
+    if (extractedSql && isJoinQuery(extractedSql)) {
+      isJoinQueryDetected = true;
+      canAutoFill = true; // 联表查询时也要自动填充
+    } else {
+      canAutoFill = true;
+    }
+  }
+
+  // 创建模态框HTML，根据是否有提取的表名来决定显示内容
+  let modalHtml = `
+    <div class="sql-generator-modal" id="sqlGeneratorModal" style="
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+      background: rgba(0,0,0,0.7); display: flex; align-items: center; 
+      justify-content: center; z-index: 100000; backdrop-filter: blur(5px);">
+      <div class="sql-generator-modal-content" style="
+        background: var(--panel); border-radius: 16px; padding: 24px; 
+        width: 90%; max-width: 800px; max-height: 80vh; 
+        overflow: auto; overflow-x: hidden; border: 1px solid var(--border); 
+        box-shadow: var(--shadow);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h3 style="margin: 0; color: var(--primary); font-size: 18px; font-weight: 600;">🔧 SQL生成器</h3>
+          <button id="closeSqlGenModal" class="btn" style="
+            background: rgba(239, 68, 68, 0.1); color: #ef4444; 
+            border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 6px 12px; 
+            cursor: pointer; font-size: 14px; min-width: 60px; transition: all 0.2s ease;">
+            关闭
+          </button>
+        </div>
+        
+        ${canAutoFill ? `
+        <!-- 当有自动提取的表名时，隐藏表名输入，直接显示提示信息 -->
+        <div style="margin-bottom: 20px; padding: 12px; background: rgba(59, 130, 246, 0.1); border-radius: 8px; color: var(--secondary); font-size: 14px; border-left: 4px solid #3b82f6;">
+          ${isJoinQueryDetected ? '检测到联表查询，已自动使用提取的表名生成SQL' : `已从现有SQL中自动提取表名: <strong>${escapeHtml(defaultTableName)}</strong>`}
+        </div>
+        ` : `
+        <!-- 当没有自动提取的表名时，显示表名输入 -->
+        <div style="margin-bottom: 24px;">
+          <label for="tableNameInput" style="display: block; margin-bottom: 8px; color: var(--text); font-weight: 500; font-size: 14px;">表名:</label>
+          <input type="text" id="tableNameInput" value="${escapeHtml(defaultTableName)}" placeholder="请输入表名" style="
+            width: 100%; padding: 12px; border: 1px solid var(--border); 
+            border-radius: 8px; background: var(--input-bg); color: var(--text);
+            font-size: 14px; margin-bottom: 8px; transition: border-color 0.2s ease;">
+          <p style="margin: 5px 0; color: var(--secondary); font-size: 12px;">请手动输入表名以生成SQL语句</p>
+        </div>
+        
+        <button id="generateSqlBtnFromModal" class="btn" style="
+          background: var(--primary); color: white; 
+          border: 1px solid var(--border); border-radius: 8px; 
+          padding: 14px 24px; margin-bottom: 20px; 
+          cursor: pointer; font-size: 15px; width: 100%;
+          font-weight: 500; transition: all 0.2s ease; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+          🗃️ 生成SQL
+        </button>
+        `}
+        
+        <!-- SQL结果显示区域，初始隐藏 -->
+        <div id="sqlResultsContainer" style="display: none;">
+          <div style="margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <h4 style="margin: 0; color: var(--text); font-size: 15px; font-weight: 600; display: flex; align-items: center;">
+                <span style="display: inline-block; width: 8px; height: 8px; background: #3b82f6; border-radius: 50%; margin-right: 8px;"></span>
+                SELECT 语句:
+              </h4>
+            </div>
+            <textarea id="selectSqlTextarea" style="
+              width: 100%; height: 150px; font-family: 'Fira Code', monospace; 
+              font-size: 13px; padding: 14px; border: 1px solid var(--border); 
+              border-radius: 8px; background: var(--card-bg); color: var(--text);
+              resize: vertical; margin: 5px 0; white-space: pre-wrap; overflow: auto;"></textarea>
+            <button class="sql-gen-btn select-btn btn" style="
+              background: rgba(59, 130, 246, 0.2); color: #3b82f6; 
+              border: 1px solid var(--border); border-radius: 6px; 
+              padding: 10px 14px; margin-top: 8px; cursor: pointer; 
+              font-size: 13px; transition: all 0.2s ease; font-weight: 500;">
+              📋 复制SELECT
+            </button>
+          </div>
+          
+          <div id="insertSqlSection" style="margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <h4 style="margin: 0; color: var(--text); font-size: 15px; font-weight: 600; display: flex; align-items: center;">
+                <span style="display: inline-block; width: 8px; height: 8px; background: #10b981; border-radius: 50%; margin-right: 8px;"></span>
+                INSERT 语句:
+              </h4>
+            </div>
+            <textarea id="insertSqlTextarea" style="
+              width: 100%; height: 150px; font-family: 'Fira Code', monospace; 
+              font-size: 13px; padding: 14px; border: 1px solid var(--border); 
+              border-radius: 8px; background: var(--card-bg); color: var(--text);
+              resize: vertical; margin: 5px 0; white-space: pre-wrap; overflow: auto;"></textarea>
+            <button class="sql-gen-btn insert-btn btn" style="
+              background: rgba(16, 185, 129, 0.2); color: #10b981; 
+              border: 1px solid var(--border); border-radius: 6px; 
+              padding: 10px 14px; margin-top: 8px; cursor: pointer; 
+              font-size: 13px; transition: all 0.2s ease; font-weight: 500;">
+              📋 复制INSERT
+            </button>
+          </div>
+          
+          <div id="deleteSqlSection" style="margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <h4 style="margin: 0; color: var(--text); font-size: 15px; font-weight: 600; display: flex; align-items: center;">
+                <span style="display: inline-block; width: 8px; height: 8px; background: #ef4444; border-radius: 50%; margin-right: 8px;"></span>
+                DELETE 语句:
+              </h4>
+            </div>
+            <textarea id="deleteSqlTextarea" style="
+              width: 100%; height: 150px; font-family: 'Fira Code', monospace; 
+              font-size: 13px; padding: 14px; border: 1px solid var(--border); 
+              border-radius: 8px; background: var(--card-bg); color: var(--text);
+              resize: vertical; margin: 5px 0; white-space: pre-wrap; overflow: auto;"></textarea>
+            <button class="sql-gen-btn delete-btn btn" style="
+              background: rgba(239, 68, 68, 0.2); color: #ef4444; 
+              border: 1px solid var(--border); border-radius: 6px; 
+              padding: 10px 14px; margin-top: 8px; cursor: pointer; 
+              font-size: 13px; transition: all 0.2s ease; font-weight: 500;">
+              📋 复制DELETE
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  console.log('模态框HTML创建完成');
+
+  // 添加到页面
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  console.log('模态框已添加到页面');
+
+  // 绑定关闭按钮事件
+  const closeBtn = document.getElementById('closeSqlGenModal');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', function () {
+      document.getElementById('sqlGeneratorModal').remove();
+      console.log('关闭按钮事件绑定成功');
+    });
+  } else {
+    console.error('未找到关闭按钮元素');
+  }
+
+  // 添加点击外部关闭功能
+  setTimeout(() => {
+    const modal = document.getElementById('sqlGeneratorModal');
+    if (modal) {
+      modal.addEventListener('click', function (e) {
+        if (e.target === modal) {
+          modal.remove();
+        }
+      });
+    }
+  }, 10); // 延迟执行以确保DOM元素已创建
+
+  // 只有在不需要自动填充时才绑定生成SQL按钮事件
+  if (!canAutoFill) {
+    const generateBtn = document.getElementById('generateSqlBtnFromModal');
+    if (generateBtn) {
+      generateBtn.addEventListener('click', function () {
+        const tableName = document.getElementById('tableNameInput').value.trim();
+        if (!tableName) {
+          alert('请输入表名');
+          return;
+        }
+
+        // 生成SQL并显示结果
+        generateAndShowSql(filterState, tableName);
+      });
+    }
+
+    // 添加表名输入框的Enter键支持
+    const tableNameInput = document.getElementById('tableNameInput');
+    if (tableNameInput) {
+      tableNameInput.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+          const tableName = tableNameInput.value.trim();
+          if (!tableName) {
+            alert('请输入表名');
+            return;
+          }
+          generateAndShowSql(filterState, tableName);
+        }
+      });
+    }
+  }
+
+  // 如果可以自动填充（包括联表查询），自动执行SQL生成
+  if (canAutoFill) {
+    // 自动执行SQL生成，使用提取的表名
+    setTimeout(() => {
+      generateAndShowSql(filterState, defaultTableName);
+    }, 100); // 延迟执行以确保DOM元素已创建
+    console.log('已从现有SQL提取表名，自动执行SQL生成');
+  }
+
+  console.log('SQL生成器输入界面初始化完成');
+}
+
+// 生成SQL并显示结果
+function generateAndShowSql(filterState, tableName) {
+  console.log('generateAndShowSql函数被调用', { tableName });
+
+  try {
+    // 检查缓存是否仍然有效（但需要考虑表名）
+    let selectSql, insertSql, deleteSql;
+    const currentCache = sqlGenerationCache.lastFilterState;
+
+    if (currentCache &&
+      isFilterStateEqual(filterState, currentCache)) {
+      // 使用缓存的SQL
+      selectSql = sqlGenerationCache.cachedSelectSql;
+      insertSql = sqlGenerationCache.cachedInsertSql;
+      deleteSql = sqlGenerationCache.cachedDeleteSql;
+      console.log('使用缓存的SQL');
+    } else {
+      console.log('缓存无效，重新生成SQL');
+
+      // 根据过滤状态生成SQL选项
+      console.log('开始生成SELECT SQL');
+      selectSql = generateSelectSQL(tableName, headers, filterState.filteredRows, filterState.columnOrder);
+      console.log('SELECT SQL生成完成:', selectSql);
+
+      console.log('开始生成INSERT SQL');
+      insertSql = generateInsertSQL(tableName, headers, filterState.filteredRows, filterState.columnOrder);
+      console.log('INSERT SQL生成完成:', insertSql);
+
+      console.log('开始生成DELETE SQL');
+      deleteSql = generateDeleteSQL(tableName, headers, filterState.filteredRows, filterState.columnOrder);
+      console.log('DELETE SQL生成完成:', deleteSql);
+
+      // 更新缓存，包含表名
+      sqlGenerationCache.lastFilterState = {
+        searchQuery: filterState.searchQuery,
+        searchField: filterState.searchField,
+        activeCols: [...filterState.activeCols],
+        columnOrder: [...filterState.columnOrder],
+        filteredRows: [...filterState.filteredRows],
+        tableName: tableName  // 添加表名到缓存键
+      };
+      sqlGenerationCache.cachedSelectSql = selectSql;
+      sqlGenerationCache.cachedInsertSql = insertSql;
+      sqlGenerationCache.cachedDeleteSql = deleteSql;
+
+      console.log('生成新的SQL并更新缓存');
+    }
+
+    // 显示SQL结果
+    showSqlResults(selectSql, insertSql, deleteSql);
+  } catch (error) {
+    console.error('生成SQL时出错:', error);
+    alert('生成SQL时出现错误，请查看控制台了解详细信息');
+  }
+}
+
+// 显示SQL结果
+function showSqlResults(selectSql, insertSql, deleteSql) {
+  console.log('showSqlResults函数被调用', { selectSql, insertSql, deleteSql });
+
+  // 显示结果区域
+  const resultsContainer = document.getElementById('sqlResultsContainer');
+  if (resultsContainer) {
+    resultsContainer.style.display = 'block';
+  }
+
+  // 格式化SQL语句
+  const formattedSelectSql = formatSql(selectSql);
+
+  // 填充SELECT SQL文本框
+  const selectTextarea = document.getElementById('selectSqlTextarea');
+  if (selectTextarea) selectTextarea.value = formattedSelectSql;
+
+  // 处理INSERT SQL - 保留标题和文本框，只根据是否能生成来决定是否显示提示信息和绑定按钮
+  const insertSqlSection = document.getElementById('insertSqlSection');
+  const insertTextarea = document.getElementById('insertSqlTextarea');
+  if (insertTextarea) {
+    if (insertSql && insertSql.trim() !== '') {
+      const formattedInsertSql = formatSql(insertSql);
+      insertTextarea.value = formattedInsertSql;
+    } else {
+      insertTextarea.value = '❌ 选中的字段来自不同表，无法生成 INSERT 语句';
+    }
+  }
+
+  // 处理DELETE SQL - 保留标题和文本框，只根据是否能生成来决定是否显示提示信息和绑定按钮
+  const deleteSqlSection = document.getElementById('deleteSqlSection');
+  const deleteTextarea = document.getElementById('deleteSqlTextarea');
+  if (deleteTextarea) {
+    if (deleteSql && deleteSql.trim() !== '') {
+      const formattedDeleteSql = formatSql(deleteSql);
+      deleteTextarea.value = formattedDeleteSql;
+    } else {
+      deleteTextarea.value = '❌ 选中的字段来自不同表，无法生成 DELETE 语句';
+    }
+  }
+
+  // 绑定复制按钮事件
+  const selectBtn = document.querySelector('.select-btn');
+  if (selectBtn) {
+    selectBtn.removeEventListener('click', selectBtn._clickHandler);
+    const clickHandler = function () {
+      const sqlText = document.getElementById('selectSqlTextarea').value;
+      navigator.clipboard.writeText(sqlText).then(() => {
+        showToast('SELECT SQL已复制到剪贴板');
+      });
+    };
+    selectBtn.addEventListener('click', clickHandler);
+    selectBtn._clickHandler = clickHandler;
+  }
+
+  // 仅在INSERT SQL有效时显示复制按钮
+  const insertBtn = document.querySelector('.insert-btn');
+  if (insertBtn) {
+    insertBtn.removeEventListener('click', insertBtn._clickHandler);
+    if (insertSql && insertSql.trim() !== '') {
+      const clickHandler = function () {
+        const sqlText = document.getElementById('insertSqlTextarea').value;
+        navigator.clipboard.writeText(sqlText).then(() => {
+          showToast('INSERT SQL已复制到剪贴板');
+        });
+      };
+      insertBtn.addEventListener('click', clickHandler);
+      insertBtn._clickHandler = clickHandler;
+      insertBtn.style.display = 'inline-block'; // 显示按钮
+    } else {
+      insertBtn.style.display = 'none'; // 隐藏按钮
+    }
+  }
+
+  // 仅在DELETE SQL有效时显示复制按钮
+  const deleteBtn = document.querySelector('.delete-btn');
+  if (deleteBtn) {
+    deleteBtn.removeEventListener('click', deleteBtn._clickHandler);
+    if (deleteSql && deleteSql.trim() !== '') {
+      const clickHandler = function () {
+        const sqlText = document.getElementById('deleteSqlTextarea').value;
+        navigator.clipboard.writeText(sqlText).then(() => {
+          showToast('DELETE SQL已复制到剪贴板');
+        });
+      };
+      deleteBtn.addEventListener('click', clickHandler);
+      deleteBtn._clickHandler = clickHandler;
+      deleteBtn.style.display = 'inline-block'; // 显示按钮
+    } else {
+      deleteBtn.style.display = 'none'; // 隐藏按钮
+    }
+  }
+
+  console.log('SQL结果显示完成');
+}
+
+// 显示SQL生成选项
+function showSqlGenerationOptions(selectSql, insertSql, deleteSql) {
+  console.log('showSqlGenerationOptions函数被调用', { selectSql, insertSql, deleteSql });
+
+  // 检查INSERT和DELETE SQL是否为空，如果是，则显示提示信息
+  let insertSqlToShow = insertSql;
+  let deleteSqlToShow = deleteSql;
+
+  if (!insertSql || insertSql.trim() === '') {
+    insertSqlToShow = '❌ 选中的字段来自不同表，无法生成 INSERT 语句';
+  }
+
+  if (!deleteSql || deleteSql.trim() === '') {
+    deleteSqlToShow = '❌ 选中的字段来自不同表，无法生成 DELETE 语句';
+  }
+
+  // 格式化SQL语句
+  const formattedSelectSql = formatSql(selectSql);
+  const formattedInsertSql = insertSqlToShow.startsWith('❌') ? insertSqlToShow : formatSql(insertSql);
+  const formattedDeleteSql = deleteSqlToShow.startsWith('❌') ? deleteSqlToShow : formatSql(deleteSql);
+
+  // 创建一个临时的模态框来显示SQL选项
+  let modalHtml = `
+    <div class="sql-generator-modal" id="sqlGeneratorModal" style="
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+      background: rgba(0,0,0,0.7); display: flex; align-items: center; 
+      justify-content: center; z-index: 100000; backdrop-filter: blur(5px);">
+      <div style="
+        background: var(--panel); border-radius: 12px; padding: 20px; 
+        width: 90%; max-width: 800px; max-height: 80vh; 
+        overflow: auto; border: 1px solid var(--border); 
+        box-shadow: var(--shadow);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+          <h3 style="margin: 0; color: var(--primary);">🔧 SQL生成器</h3>
+          <button id="closeSqlGenModal" style="
+            background: rgba(239, 68, 68, 0.1); color: #ef4444; 
+            border: none; border-radius: 6px; padding: 5px 10px; 
+            cursor: pointer; font-size: 14px;">关闭</button>
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+            <h4 style="margin: 0; color: var(--text);">SELECT 语句:</h4>
+          </div>
+          <textarea id="selectSqlTextarea" style="
+            width: 100%; height: 150px; font-family: 'Fira Code', monospace; 
+            font-size: 12px; padding: 12px; border: 1px solid var(--border); 
+            border-radius: 8px; background: var(--card-bg); color: var(--text);
+            resize: vertical; margin: 5px 0; white-space: pre-wrap; overflow: auto;">${escapeHtml(formattedSelectSql)}</textarea>
+          <button class="sql-gen-btn select-btn" style="
+            background: rgba(59, 130, 246, 0.2); color: #3b82f6; 
+            border: 1px solid var(--border); border-radius: 6px; 
+            padding: 8px 12px; margin-top: 8px; cursor: pointer; 
+            font-size: 13px;">复制SELECT</button>
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+            <h4 style="margin: 0; color: var(--text);">INSERT 语句:</h4>
+          </div>
+          <textarea id="insertSqlTextarea" style="
+            width: 100%; height: 150px; font-family: 'Fira Code', monospace; 
+            font-size: 12px; padding: 12px; border: 1px solid var(--border); 
+            border-radius: 8px; background: var(--card-bg); color: var(--text);
+            resize: vertical; margin: 5px 0; white-space: pre-wrap; overflow: auto;">${escapeHtml(formattedInsertSql)}</textarea>
+          ${insertSqlToShow.startsWith('❌') ? '' : `<button class="sql-gen-btn insert-btn" style="
+            background: rgba(16, 185, 129, 0.2); color: #10b981; 
+            border: 1px solid var(--border); border-radius: 6px; 
+            padding: 8px 12px; margin-top: 8px; cursor: pointer; 
+            font-size: 13px;">复制INSERT</button>`}
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+            <h4 style="margin: 0; color: var(--text);">DELETE 语句:</h4>
+          </div>
+          <textarea id="deleteSqlTextarea" style="
+            width: 100%; height: 150px; font-family: 'Fira Code', monospace; 
+            font-size: 12px; padding: 12px; border: 1px solid var(--border); 
+            border-radius: 8px; background: var(--card-bg); color: var(--text);
+            resize: vertical; margin: 5px 0; white-space: pre-wrap; overflow: auto;">${escapeHtml(formattedDeleteSql)}</textarea>
+          ${deleteSqlToShow.startsWith('❌') ? '' : `<button class="sql-gen-btn delete-btn" style="
+            background: rgba(239, 68, 68, 0.2); color: #ef4444; 
+            border: 1px solid var(--border); border-radius: 6px; 
+            padding: 8px 12px; margin-top: 8px; cursor: pointer; 
+            font-size: 13px;">复制DELETE</button>`}
+        </div>
+      </div>
+    </div>
+  `;
+
+  console.log('模态框HTML创建完成');
+
+  // 添加到页面
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  console.log('模态框已添加到页面');
+
+  // 绑定事件
+  const closeBtn = document.getElementById('closeSqlGenModal');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', function () {
+      document.getElementById('sqlGeneratorModal').remove();
+      console.log('关闭按钮事件绑定成功');
+    });
+  } else {
+    console.error('未找到关闭按钮元素');
+  }
+
+  console.log('SQL文本框已初始化');
+
+  // 复制按钮事件
+  const selectBtn = document.querySelector('.select-btn');
+  if (selectBtn) {
+    selectBtn.addEventListener('click', function () {
+      const sqlText = document.getElementById('selectSqlTextarea').value;
+      navigator.clipboard.writeText(sqlText).then(() => {
+        showToast('SELECT SQL已复制到剪贴板');
+      });
+    });
+    console.log('SELECT复制按钮事件绑定成功');
+  } else {
+    console.error('未找到SELECT复制按钮');
+  }
+
+  const insertBtn = document.querySelector('.insert-btn');
+  if (insertBtn) {
+    insertBtn.addEventListener('click', function () {
+      const sqlText = document.getElementById('insertSqlTextarea').value;
+      // 如果是提示信息，则不复制
+      if (sqlText.startsWith('❌')) {
+        showToast('无法复制INSERT SQL：' + sqlText.substring(3));
+      } else {
+        navigator.clipboard.writeText(sqlText).then(() => {
+          showToast('INSERT SQL已复制到剪贴板');
+        });
+      }
+    });
+    console.log('INSERT复制按钮事件绑定成功');
+  } else {
+    console.error('未找到INSERT复制按钮');
+  }
+
+  const deleteBtn = document.querySelector('.delete-btn');
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', function () {
+      const sqlText = document.getElementById('deleteSqlTextarea').value;
+      // 如果是提示信息，则不复制
+      if (sqlText.startsWith('❌')) {
+        showToast('无法复制DELETE SQL：' + sqlText.substring(3));
+      } else {
+        navigator.clipboard.writeText(sqlText).then(() => {
+          showToast('DELETE SQL已复制到剪贴板');
+        });
+      }
+    });
+    console.log('DELETE复制按钮事件绑定成功');
+  } else {
+    console.error('未找到DELETE复制按钮');
+  }
+
+  console.log('showSqlGenerationOptions函数执行完成');
+}
+
+
+
+// HTML转义函数
+function escapeHtml(text) {
+  if (typeof text !== 'string') return text;
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+// 将SQL生成器函数暴露到全局作用域
+window.openSqlGeneratorModal = openSqlGeneratorModal;
