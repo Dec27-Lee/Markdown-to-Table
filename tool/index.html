@@ -9,97 +9,122 @@
   <style>
     :root {
       /* 深色主题颜色变量 */
-      --bg: linear-gradient(135deg, #0a0a0a 0%, #111827 100%);
-      /* 背景渐变 */
-      --panel: rgba(17, 24, 39, 0.95);
-      /* 面板背景色 */
-      --border: rgba(255, 255, 255, 0.15);
-      /* 边框颜色 */
-      --text: #f9fafb;
-      /* 主要文字颜色 */
-      --text-secondary: #9ca3af;
-      /* 次要文字颜色 */
-      --primary: #3b82f6;
-      /* 主要强调色 */
-      --primary-hover: #2563eb;
-      /* 主要强调色悬停状态 */
-      --accent: #7c3aed;
-      /* 辅助强调色 */
-      --success: #10b981;
-      /* 成功状态颜色 */
-      --json-key: #60a5fa;
+      --color-bg: #1E293B;
+      /* 全局背景 */
+      --color-surface: #0F172A;
+      /* 表层背景（卡片/输入区） */
+      --color-text-primary: #F8FAFC;
+      /* 文本主色（标题/数据/按钮） */
+      --color-text-muted: #94A3B8;
+      /* 文本次色（提示/说明） */
+      --color-border: #334155;
+      /* 边框/分割线 */
+      --color-disabled: #475569;
+      /* 禁用状态色 */
+      --color-primary: #3B82F6;
+      /* 主色（核心操作） */
+      --color-primary-contrast: #FFFFFF;
+      /* 主色对比色（按钮文字） */
+      --color-primary-light: #1E40AF;
+      /* 主色浅色调（hover/选中背景） */
+      --color-secondary: #64748B;
+      /* 次色（次要操作） */
+      --color-secondary-contrast: #FFFFFF;
+      /* 次色对比色（按钮文字） */
+      --color-success: #1E7A3E;
+      /* 成功色（导出/解析成功） */
+      --color-danger: #D14343;
+      /* 错误色（格式错误/解析失败） */
+      --color-json-key: #60A5FA;
       /* JSON键名颜色 */
-      --json-str: #34d399;
+      --color-json-str: #34D399;
       /* JSON字符串颜色 */
-      --json-num: #f59e0b;
+      --color-json-num: #F59E0B;
       /* JSON数字颜色 */
-      --json-bool: #ec4899;
+      --color-json-bool: #EC4899;
       /* JSON布尔值颜色 */
-      --card-bg: rgba(17, 24, 39, 0.8);
-      /* 卡片背景色 */
-      --hover-bg: rgba(59, 130, 246, 0.1);
-      /* 悬停背景色 */
       --shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
       /* 大阴影 */
       --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.3);
       /* 小阴影 */
-      --glass-bg: rgba(17, 24, 39, 0.4);
+      --glass-bg: rgba(15, 23, 42, 0.6);
       /* 毛玻璃效果背景 */
+      /* 表格专用配色 */
+      --table-header-bg: #0F172A;
+      /* 表头背景 */
+      --table-row-odd: #1E293B;
+      /* 表格奇数行背景 */
+      --table-row-even: #1A2538;
+      /* 表格偶数行背景 */
+      --table-sort-highlight: #1E40AF;
+      /* 表格排序高亮 */
     }
 
     [data-theme="light"] {
       /* 浅色主题颜色变量 */
-      --bg: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 30%, #e2e8f0 100%);
-      /* 背景渐变 */
-      --panel: rgba(255, 255, 255, 0.95);
-      /* 面板背景色 */
-      --border: rgba(0, 0, 0, 0.08);
-      /* 边框颜色 */
-      --text: #1e293b;
-      /* 主要文字颜色 */
-      --text-secondary: #475569;
-      /* 次要文字颜色 */
-      --primary: #2563eb;
-      /* 主要强调色 */
-      --primary-hover: #1d4ed8;
-      /* 主要强调色悬停状态 */
-      --accent: #7c3aed;
-      /* 辅助强调色 */
-      --success: #059669;
-      /* 成功状态颜色 */
-      --json-key: #1d4ed8;
+      --color-bg: #FFFFFF;
+      /* 全局背景 */
+      --color-surface: #F7F8FA;
+      /* 表层背景（卡片/输入区） */
+      --color-text-primary: #222222;
+      /* 文本主色（标题/数据/按钮） */
+      --color-text-muted: #6B7280;
+      /* 文本次色（提示/说明） */
+      --color-border: #E5E7EB;
+      /* 边框/分割线 */
+      --color-disabled: #D1D5DB;
+      /* 禁用状态色 */
+      --color-primary: #3B82F6;
+      /* 主色（核心操作） */
+      --color-primary-contrast: #FFFFFF;
+      /* 主色对比色（按钮文字） */
+      --color-primary-light: #EFF6FF;
+      /* 主色浅色调（hover/选中背景） */
+      --color-secondary: #64748B;
+      /* 次色（次要操作） */
+      --color-secondary-contrast: #FFFFFF;
+      /* 次色对比色（按钮文字） */
+      --color-success: #1E7A3E;
+      /* 成功色（导出/解析成功） */
+      --color-danger: #D14343;
+      /* 错误色（格式错误/解析失败） */
+      --color-json-key: #1D4ED8;
       /* JSON键名颜色 */
-      --json-str: #0d9488;
+      --color-json-str: #0D9488;
       /* JSON字符串颜色 */
-      --json-num: #b45309;
+      --color-json-num: #B45309;
       /* JSON数字颜色 */
-      --json-bool: #dc2626;
+      --color-json-bool: #DC2626;
       /* JSON布尔值颜色 */
-      --card-bg: rgba(248, 250, 252, 0.8);
-      /* 卡片背景色 */
-      --hover-bg: rgba(37, 99, 235, 0.08);
-      /* 悬停背景色 */
       --shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
       /* 大阴影 */
       --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.08);
       /* 小阴影 */
-      --glass-bg: rgba(255, 255, 255, 0.6);
+      --glass-bg: rgba(247, 248, 250, 0.6);
       /* 毛玻璃效果背景 */
+      /* 表格专用配色 */
+      --table-header-bg: #E2E8F0;
+      /* 表头背景 */
+      --table-row-odd: #FFFFFF;
+      /* 表格奇数行背景 */
+      --table-row-even: #F7FAFC;
+      /* 表格偶数行背景 */
+      --table-sort-highlight: #EFF6FF;
+      /* 表格排序高亮 */
     }
 
     /* 明亮模式下表头样式优化 */
     [data-theme="light"] th {
-      background: linear-gradient(to bottom,
-          var(--glass-bg) 0%,
-          rgba(255, 255, 255, 0.95) 100%);
+      background: var(--table-header-bg);
+      color: var(--color-text-primary);
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
     }
 
     body {
       margin: 0;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: var(--bg);
-      color: var(--text);
+      background: var(--color-bg);
+      color: var(--color-text-primary);
       height: 100vh;
       display: flex;
       overflow: hidden;
@@ -108,10 +133,10 @@
 
     .sidebar {
       width: 280px;
-      background: var(--panel);
+      background: var(--color-surface);
       backdrop-filter: blur(20px) saturate(180%);
       -webkit-backdrop-filter: blur(20px) saturate(180%);
-      border-right: 1px solid var(--border);
+      border-right: 1px solid var(--color-border);
       display: flex;
       flex-direction: column;
       flex-shrink: 0;
@@ -122,13 +147,13 @@
 
     .sidebar-header {
       padding: 24px 20px;
-      border-bottom: 1px solid var(--border);
+      border-bottom: 1px solid var(--color-border);
       background: var(--glass-bg);
     }
 
     .sidebar-header h2 {
       font-size: 22px;
-      background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+      background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -138,7 +163,7 @@
 
     .sidebar-header h3 {
       font-size: 13px;
-      color: var(--text-secondary);
+      color: var(--color-text-muted);
       margin: 0 0 20px 0;
       font-weight: 500;
     }
@@ -155,28 +180,28 @@
     }
 
     .version-area:hover {
-      background: var(--hover-bg);
+      background: var(--color-primary-light);
       transform: translateY(-1px);
     }
 
     .version-label {
-      color: var(--text-secondary);
+      color: var(--color-text-muted);
       font-size: 16px;
     }
 
     .version-number {
-      color: var(--primary);
+      color: var(--color-primary);
       font-weight: 600;
       font-size: 20px;
     }
 
     .version-modal {
       max-width: 450px;
-      background: var(--panel);
+      background: var(--color-surface);
       border-radius: 16px;
       overflow: hidden;
       box-shadow: var(--shadow);
-      border: 1px solid var(--border);
+      border: 1px solid var(--color-border);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
     }
@@ -190,14 +215,14 @@
       background: var(--glass-bg);
       border-radius: 8px;
       border: none;
-      color: var(--text);
+      color: var(--color-text-primary);
       cursor: pointer;
       font-size: 16px;
       transition: all 0.3s ease;
     }
 
     .close-btn:hover {
-      background: var(--hover-bg);
+      background: var(--color-primary-light);
       transform: scale(1.1);
     }
 
@@ -207,7 +232,7 @@
 
     .version-link-section {
       padding-top: 16px;
-      border-top: 1px solid var(--border);
+      border-top: 1px solid var(--color-border);
       margin-top: 8px;
     }
 
@@ -216,16 +241,16 @@
       padding: 12px 16px;
       background: var(--glass-bg);
       border-radius: 10px;
-      color: var(--primary);
+      color: var(--color-primary);
       text-decoration: none;
       font-weight: 500;
       transition: all 0.3s ease;
-      border: 1px solid var(--border);
+      border: 1px solid var(--color-border);
       text-align: center;
     }
 
     .version-link:hover {
-      background: var(--hover-bg);
+      background: var(--color-primary-light);
       transform: translateY(-2px);
       box-shadow: var(--shadow-sm);
     }
@@ -240,10 +265,10 @@
 
     .input-bar {
       padding: 20px;
-      background: var(--panel);
+      background: var(--color-surface);
       backdrop-filter: blur(15px);
       -webkit-backdrop-filter: blur(15px);
-      border-bottom: 1px solid var(--border);
+      border-bottom: 1px solid var(--color-border);
       box-shadow: var(--shadow-sm);
     }
 
@@ -252,9 +277,9 @@
       min-height: 120px;
       max-height: 600px;
       overflow: auto;
-      border: 1px solid var(--border);
+      border: 1px solid var(--color-border);
       border-radius: 12px;
-      background: var(--card-bg);
+      background: var(--color-surface);
       padding: 16px;
       box-sizing: border-box;
       position: relative;
@@ -266,7 +291,7 @@
       max-height: 500px;
       background: transparent;
       border: none;
-      color: var(--text);
+      color: var(--color-text-primary);
       font-family: 'Fira Code', 'SF Mono', Monaco, monospace;
       font-size: 13px;
       resize: vertical;
@@ -278,7 +303,7 @@
 
     textarea:focus {
       outline: none;
-      border-color: var(--primary);
+      border-color: var(--color-primary);
       box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
       background: var(--glass-bg);
     }
@@ -296,7 +321,7 @@
       max-height: calc(100vh - 310px);
       overflow: auto;
       position: relative;
-      border: 1px solid var(--border);
+      border: 1px solid var(--color-border);
       border-radius: 12px 12px 0 0;
       background: var(--glass-bg);
       backdrop-filter: blur(10px);
@@ -304,10 +329,10 @@
 
     .stats {
       font-size: 12px;
-      color: var(--text-secondary);
+      color: var(--color-text-muted);
       white-space: nowrap;
       padding: 8px 16px;
-      background: var(--card-bg);
+      background: var(--color-surface);
       border-radius: 0 0 12px 12px;
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
@@ -322,12 +347,12 @@
       border-spacing: 0;
       width: 100%;
       min-width: max-content;
-      background: var(--panel);
+      background: var(--color-surface);
       border-radius: 16px;
       box-shadow: var(--shadow);
       backdrop-filter: blur(15px);
       -webkit-backdrop-filter: blur(15px);
-      border: 1px solid var(--border);
+      border: 1px solid var(--color-border);
     }
 
     /* 确保表头在滚动时固定 */
@@ -335,28 +360,30 @@
       position: sticky;
       top: 0;
       z-index: 100;
-      background: linear-gradient(to bottom,
-          var(--glass-bg) 0%,
-          rgba(17, 24, 39, 0.95) 100%);
-      padding: 16px 20px;
-      font-size: 13px;
+      background: var(--table-header-bg);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-bottom: 2px solid var(--color-border);
+      color: var(--color-text-primary);
       font-weight: 600;
-      border-bottom: 2px solid var(--primary);
       text-align: left;
-      cursor: pointer;
+      padding: 16px 20px;
+      font-size: 14px;
+      min-width: 120px;
+      max-width: 320px;
       white-space: nowrap;
-      color: var(--text);
-      backdrop-filter: blur(20px) saturate(200%);
-      -webkit-backdrop-filter: blur(20px) saturate(200%);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
       transition: all 0.2s ease;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
 
 
 
     th:hover {
-      background: var(--hover-bg);
-      color: var(--primary);
+      background: var(--color-primary-light);
+      color: var(--color-primary);
     }
 
     /* 排序状态指示器样式 */
@@ -364,20 +391,20 @@
       background: linear-gradient(to bottom,
           var(--glass-bg) 0%,
           rgba(37, 99, 235, 0.2) 100%) !important;
-      border-bottom: 2px solid var(--primary) !important;
+      border-bottom: 2px solid var(--color-primary) !important;
     }
 
     .sort-desc {
       background: linear-gradient(to bottom,
           var(--glass-bg) 0%,
           rgba(124, 58, 237, 0.2) 100%) !important;
-      border-bottom: 2px solid var(--accent) !important;
+      border-bottom: 2px solid var(--color-primary) !important;
     }
 
     td {
       padding: 14px 20px;
       font-size: 13px;
-      border-bottom: 1px solid var(--border);
+      border-bottom: 1px solid var(--color-border);
       max-width: 320px;
       white-space: nowrap;
       overflow: hidden;
@@ -387,9 +414,24 @@
       position: relative;
     }
 
+    /* 表格斑马纹效果 */
+    tbody tr:nth-child(odd) {
+      background-color: var(--table-row-odd);
+    }
+
+    tbody tr:nth-child(even) {
+      background-color: var(--table-row-even);
+    }
+
+    /* 排序列高亮 */
+    th.sort-highlight {
+      background: var(--table-sort-highlight) !important;
+      color: var(--color-primary-contrast) !important;
+    }
+
     td:not([data-json]):hover {
-      background: var(--hover-bg);
-      color: var(--primary);
+      background: var(--color-primary-light);
+      color: var(--color-primary);
     }
 
     td:not([data-json]):active {
@@ -401,27 +443,27 @@
     }
 
     td[data-json]:hover {
-      background: var(--hover-bg);
+      background: var(--color-primary-light);
     }
 
     /* 列悬停高亮 */
     td.table-cell:hover {
-      background: var(--hover-bg);
-      color: var(--primary);
+      background: var(--color-primary-light);
+      color: var(--color-primary-contrast);
     }
 
     /* 列选择高亮 */
     td.table-cell.column-highlight {
-      background: var(--hover-bg);
-      color: var(--primary);
+      background: var(--color-primary-light);
+      color: var(--color-primary-contrast);
       transition: all 0.2s ease;
     }
 
     /* 单元格选中状态 */
     td.table-cell.selected {
-      background: rgba(59, 130, 246, 0.3) !important;
-      outline: 2px solid var(--primary);
-      color: var(--text);
+      background: var(--color-primary-light) !important;
+      outline: 2px solid var(--color-primary);
+      color: var(--color-primary-contrast);
       transition: all 0.2s ease;
     }
 
@@ -433,7 +475,7 @@
       background: var(--glass-bg);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
-      border-right: 2px solid var(--border);
+      border-right: 2px solid var(--color-border);
       box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
     }
 
@@ -446,7 +488,7 @@
       background: var(--glass-bg);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
-      border-right: 2px solid var(--border);
+      border-right: 2px solid var(--color-border);
       box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
     }
 
@@ -460,11 +502,11 @@
     }
 
     tr:hover td {
-      background: var(--hover-bg);
+      background: var(--color-primary-light);
     }
 
     .json-badge {
-      background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+      background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary) 100%);
       color: white;
       font-size: 10px;
       font-weight: 600;
@@ -508,14 +550,14 @@
     }
 
     .modal-box {
-      background: var(--panel);
+      background: var(--color-surface);
       backdrop-filter: blur(30px) saturate(200%);
       -webkit-backdrop-filter: blur(30px) saturate(200%);
       width: 100%;
       max-width: 900px;
       max-height: 85vh;
       border-radius: 24px;
-      border: 1px solid var(--border);
+      border: 1px solid var(--color-border);
       display: flex;
       flex-direction: column;
       box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
@@ -537,7 +579,7 @@
 
     .modal-header {
       padding: 20px 30px;
-      border-bottom: 1px solid var(--border);
+      border-bottom: 1px solid var(--color-border);
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -547,10 +589,10 @@
     .modal-body {
       padding: 0;
       overflow: auto;
-      background: var(--card-bg);
+      background: var(--color-surface);
       margin: 24px;
       border-radius: 16px;
-      border: 1px solid var(--border);
+      border: 1px solid var(--color-border);
       flex: 1;
     }
 
@@ -565,35 +607,35 @@
     }
 
     .json-key {
-      color: var(--json-key);
+      color: var(--color-json-key);
     }
 
     .json-string {
-      color: var(--json-str);
+      color: var(--color-json-str);
     }
 
     .json-number {
-      color: var(--json-num);
+      color: var(--color-json-num);
     }
 
     .json-boolean {
-      color: var(--json-bool);
+      color: var(--color-json-bool);
     }
 
     .json-null {
-      color: var(--text-secondary);
+      color: var(--color-text-muted);
     }
 
     .json-punctuation {
-      color: var(--text-secondary);
+      color: var(--color-text-muted);
     }
 
     .btn {
       padding: 10px 18px;
       border-radius: 10px;
-      border: 1px solid var(--border);
-      background: var(--card-bg);
-      color: var(--text);
+      border: 1px solid var(--color-border);
+      background: var(--color-surface);
+      color: var(--color-text-primary);
       cursor: pointer;
       font-size: 13px;
       font-weight: 500;
@@ -607,9 +649,9 @@
     }
 
     .btn:hover {
-      background: var(--primary);
+      background: var(--color-primary);
       color: white;
-      border-color: var(--primary);
+      border-color: var(--color-primary);
       transform: translateY(-2px);
       box-shadow: 0 8px 20px rgba(96, 165, 250, 0.3);
     }
@@ -628,7 +670,7 @@
       top: 10%;
       left: 50%;
       transform: translateX(-50%) translateY(0);
-      background: var(--success);
+      background: var(--color-success);
       color: white;
       padding: 14px 32px;
       border-radius: 12px;
@@ -650,11 +692,11 @@
     #colSearch {
       width: 100%;
       box-sizing: border-box;
-      background: var(--card-bg);
-      border: 1px solid var(--border);
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
       border-radius: 10px;
       padding: 10px 14px;
-      color: var(--text);
+      color: var(--color-text-primary);
       font-size: 13px;
       transition: all 0.3s ease;
       backdrop-filter: blur(10px);
@@ -663,16 +705,16 @@
 
     #colSearch:focus {
       outline: none;
-      border-color: var(--primary);
+      border-color: var(--color-primary);
       box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
     }
 
     #generateSqlBtn {
-      background: #3b82f6;
-      border: 1px solid var(--border);
+      background: var(--color-primary);
+      border: 1px solid var(--color-border);
       border-radius: 10px;
       padding: 10px 14px;
-      color: var(--text);
+      color: var(--color-text-primary);
       cursor: pointer;
       font-size: 13px;
       font-weight: 500;
@@ -686,9 +728,9 @@
     }
 
     #generateSqlBtn:hover {
-      background: var(--primary);
+      background: var(--color-primary);
       color: white;
-      border-color: var(--primary);
+      border-color: var(--color-primary);
       transform: translateY(-1px);
       box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
     }
@@ -700,11 +742,11 @@
     #rowSearch {
       width: 100%;
       box-sizing: border-box;
-      background: var(--card-bg);
-      border: 1px solid var(--border);
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
       border-radius: 10px;
       padding: 10px 14px;
-      color: var(--text);
+      color: var(--color-text-primary);
       font-size: 13px;
       transition: all 0.3s ease;
       backdrop-filter: blur(10px);
@@ -713,29 +755,29 @@
 
     #rowSearch:focus {
       outline: none;
-      border-color: var(--primary);
+      border-color: var(--color-primary);
       box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
     }
 
     #version {
       font-size: 20px;
-      color: var(--accent);
+      color: var(--color-primary);
       cursor: pointer;
       font-weight: 600;
       transition: all 0.2s ease;
     }
 
     #version:hover {
-      color: var(--primary);
+      color: var(--color-primary);
       transform: scale(1.05);
     }
 
     .stats {
       font-size: 12px;
-      color: var(--text-secondary);
+      color: var(--color-text-muted);
       white-space: nowrap;
       padding: 8px 16px;
-      background: var(--card-bg);
+      background: var(--color-surface);
       border-radius: 10px;
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
@@ -746,7 +788,7 @@
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      background: var(--success);
+      background: var(--color-success);
       color: white;
       padding: 6px 12px;
       border-radius: 8px;
@@ -769,23 +811,23 @@
     }
 
     ::-webkit-scrollbar-track {
-      background: var(--card-bg);
+      background: var(--color-surface);
       border-radius: 10px;
     }
 
     ::-webkit-scrollbar-thumb {
-      background: var(--border);
+      background: var(--color-border);
       border-radius: 10px;
     }
 
     ::-webkit-scrollbar-thumb:hover {
-      background: var(--primary);
+      background: var(--color-primary);
     }
 
     /* 拖拽相关样式 */
     .col-item.drag-over {
       background: rgba(59, 130, 246, 0.2) !important;
-      border-color: var(--primary) !important;
+      border-color: var(--color-primary) !important;
     }
 
     .drag-handle {
@@ -804,7 +846,7 @@
     .drop-indicator {
       position: absolute;
       height: 4px;
-      background-color: var(--primary);
+      background-color: var(--color-primary);
       width: 90%;
       border-radius: 2px;
       margin: 2px 5% 2px 5%;
@@ -816,10 +858,10 @@
       align-items: center;
       gap: 12px;
       padding: 16px 20px;
-      background: var(--panel);
+      background: var(--color-surface);
       backdrop-filter: blur(15px);
       -webkit-backdrop-filter: blur(15px);
-      border-bottom: 1px solid var(--border);
+      border-bottom: 1px solid var(--color-border);
       box-shadow: var(--shadow-sm);
       position: relative;
       z-index: 10000;
@@ -846,12 +888,12 @@
       align-items: center;
       justify-content: space-between;
       padding: 10px 14px;
-      background: var(--card-bg);
-      border: 1px solid var(--border);
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
       border-radius: 10px;
       cursor: pointer;
       font-size: 13px;
-      color: var(--text);
+      color: var(--color-text-primary);
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
@@ -861,16 +903,16 @@
     }
 
     .field-selector:hover {
-      background: var(--hover-bg);
-      border-color: var(--primary);
-      color: var(--primary);
+      background: var(--color-primary-light);
+      border-color: var(--color-primary);
+      color: var(--color-primary);
       transform: translateY(-2px);
       box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
     }
 
     .field-selector:focus {
       outline: none;
-      border-color: var(--primary);
+      border-color: var(--color-primary);
       box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
     }
 
@@ -879,7 +921,7 @@
     }
 
     .field-selector.open {
-      border-color: var(--primary);
+      border-color: var(--color-primary);
       background: rgba(59, 130, 246, 0.1);
     }
 
@@ -940,7 +982,7 @@
     }
 
     .field-selector:hover .selector-arrow {
-      color: var(--primary);
+      color: var(--color-primary);
     }
 
     /* 字段下拉菜单样式 */
@@ -949,8 +991,8 @@
       top: 100%;
       left: 0;
       width: 100%;
-      background: var(--panel);
-      border: 1px solid var(--border);
+      background: var(--color-surface);
+      border-bottom: 1px solid var(--color-border);
       border-radius: 12px;
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25), var(--shadow-sm);
       backdrop-filter: blur(20px);
@@ -974,18 +1016,18 @@
     }
 
     .field-dropdown::-webkit-scrollbar-track {
-      background: rgba(15, 23, 42, 0.4);
+      background: var(--color-surface);
       border-radius: 4px;
       margin: 4px 0;
     }
 
     .field-dropdown::-webkit-scrollbar-thumb {
-      background: rgba(148, 163, 184, 0.5);
+      background: var(--color-text-muted);
       border-radius: 4px;
     }
 
     .field-dropdown::-webkit-scrollbar-thumb:hover {
-      background: var(--primary);
+      background: var(--color-primary);
     }
 
     .field-dropdown.show {
@@ -998,12 +1040,12 @@
     /* 选择器箭头样式 */
     .selector-arrow {
       font-size: 10px;
-      color: var(--text-secondary);
+      color: var(--color-text-muted);
       transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .field-selector:hover .selector-arrow {
-      color: var(--primary);
+      color: var(--color-primary);
     }
 
     .field-selector.open .selector-arrow {
@@ -1015,9 +1057,9 @@
       padding: 12px 16px;
       cursor: pointer;
       font-size: 14px;
-      color: var(--text);
+      color: var(--color-text-primary);
       transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      border-bottom: 1px solid var(--color-border);
       display: flex;
       align-items: center;
       position: relative;
@@ -1029,7 +1071,7 @@
     }
 
     .field-option:hover {
-      background: var(--hover-bg);
+      background: var(--color-primary-light);
       color: var(--primary);
       padding-left: 20px;
       transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1056,10 +1098,10 @@
       width: calc(100% - 16px);
       margin: 8px 8px 0 8px;
       padding: 10px 12px;
-      background: rgba(15, 23, 42, 0.6);
-      border: 1px solid var(--border);
+      background: var(--glass-bg);
+      border: 1px solid var(--color-border);
       border-radius: 8px;
-      color: var(--text);
+      color: var(--color-text-primary);
       font-size: 13px;
       outline: none;
       transition: all 0.3s ease;
@@ -1089,13 +1131,13 @@
     }
 
     .field-options-container::-webkit-scrollbar-track {
-      background: rgba(15, 23, 42, 0.4);
+      background: var(--color-surface);
       border-radius: 4px;
       margin: 4px 0;
     }
 
     .field-options-container::-webkit-scrollbar-thumb {
-      background: rgba(148, 163, 184, 0.5);
+      background: var(--color-text-muted);
       border-radius: 4px;
     }
 
@@ -1112,11 +1154,11 @@
       max-width: 100%;
       /* 设置最大宽度为100%，允许完全自适应 */
       box-sizing: border-box;
-      background: var(--card-bg);
-      border: 1px solid var(--border);
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
       border-radius: 10px;
       padding: 10px 14px;
-      color: var(--text);
+      color: var(--color-text-primary);
       font-size: 13px;
       transition: all 0.3s ease;
       backdrop-filter: blur(10px);
@@ -1218,7 +1260,7 @@
 
     <!-- SQL展示区域 -->
     <div class="sql-display-container"
-      style="padding: 12px 16px; background: var(--panel); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border-bottom: 1px solid var(--border); box-shadow: var(--shadow-sm);">
+      style="padding: 12px 16px; background: var(--color-surface); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border-bottom: 1px solid var(--color-border); box-shadow: var(--shadow-sm);">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
         <h3 style="margin: 0; font-size: 14px; color: var(--primary);">🔍 识别到的SQL</h3>
         <button id="copySqlBtn" class="btn" style="font-size: 11px; padding: 4px 8px;" onclick="copySql()"
@@ -1226,10 +1268,10 @@
           复制SQL</button>
       </div>
       <div id="sqlDisplay"
-        style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-family: 'Fira Code', 'SF Mono', Monaco, monospace; font-size: 12px; line-height: 1.4; max-height: 150px; overflow: auto; white-space: pre-wrap; word-break: break-word; display: none;">
+        style="background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 8px; padding: 12px; font-family: 'Fira Code', 'SF Mono', Monaco, monospace; font-size: 12px; line-height: 1.4; max-height: 150px; overflow: auto; white-space: pre-wrap; word-break: break-word; display: none;">
       </div>
       <div id="noSqlMessage"
-        style="color: var(--text-secondary); font-size: 12px; text-align: center; padding: 12px; display: block;">
+        style="color: var(--color-text-muted); font-size: 12px; text-align: center; padding: 12px; display: block;">
         <div style="line-height: 1.4;">
           <span style="font-weight: 500;">🔍 未识别到SQL</span><br>
           <small style="opacity: 0.8;">同时选中包含SQL查询的文本并复制到上方输入框，即可自动解析并显示SQL语句</small>
@@ -1335,7 +1377,7 @@
           </ul>
 
           <div class="version-link-section">
-            <p style="margin: 0 0 10px 0; color: var(--text-secondary); font-size: 20px;">点击下方链接查看版本日志和下载最新版本：</p>
+            <p style="margin: 0 0 10px 0; color: var(--color-text-muted); font-size: 20px;">点击下方链接查看版本日志和下载最新版本：</p>
             <a href="https://icni4jqv01ut.feishu.cn/wiki/IiZJwKb4ci5IGDkW0yWckV7mnhd?from=from_copylink" target="_blank"
               class="version-link" style="font-size: 20px;" onclick="event.stopPropagation();">
               查看版本日志和下载最新版本 →

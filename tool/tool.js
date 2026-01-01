@@ -998,11 +998,11 @@ function renderSidebar() {
     // 检查该列是否被选中
     const on = activeCols.has(colIndex);
     return `
-      <div class="col-item" data-col-index="${colIndex}" draggable="true" style="display:flex; align-items:center; padding:10px; border-radius:10px; margin-bottom:6px; cursor:move; background:${on ? 'rgba(96, 165, 250, 0.1)' : 'transparent'}; border:1px solid ${on ? 'var(--primary)' : 'var(--border)'}; transition:all 0.2s ease;">
-        <div style="width:16px; height:16px; border-radius:4px; border:2px solid ${on ? 'var(--primary)' : 'var(--border)'}; margin-right:12px; display:flex; align-items:center; justify-content:center; background:${on ? 'var(--primary)' : 'transparent'}; transition:all 0.2s ease;">
+      <div class="col-item" data-col-index="${colIndex}" draggable="true" style="display:flex; align-items:center; padding:10px; border-radius:10px; margin-bottom:6px; cursor:move; background:${on ? 'rgba(96, 165, 250, 0.1)' : 'transparent'}; border:1px solid ${on ? 'var(--color-primary)' : 'var(--color-border)'}; transition:all 0.2s ease;">
+        <div style="width:16px; height:16px; border-radius:4px; border:2px solid ${on ? 'var(--color-primary)' : 'var(--color-border)'}; margin-right:12px; display:flex; align-items:center; justify-content:center; background:${on ? 'var(--color-primary)' : 'transparent'}; transition:all 0.2s ease;">
           ${on ? '✓' : ''}
         </div>
-        <span style="font-size:13px; color:${on ? 'var(--primary)' : 'var(--text)'}; flex-grow:1; font-weight:${on ? '600' : '400'}">${h}</span>
+        <span style="font-size:13px; color:${on ? 'var(--color-primary)' : 'var(--color-text-primary)'}; flex-grow:1; font-weight:${on ? '600' : '400'}">${h}</span>
         <div class="drag-handle" style="margin-left:10px; opacity:0.5; cursor:move;">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M3 5C3 4.44772 3.44772 4 4 4C4.55228 4 5 4.44772 5 5C5 5.55228 4.55228 6 4 6C3.44772 6 3 5.55228 3 5Z" fill="currentColor"/>
@@ -1263,7 +1263,7 @@ function renderTable() {
 
     // 清空表格主体并显示提示
     if (tbody) {
-      tbody.innerHTML = `<tr><td style="text-align:center; color:var(--text-secondary); padding:40px; font-size:14px;">没有列被选中，请在侧边栏选择要显示的列</td></tr>`;
+      tbody.innerHTML = `<tr><td style="text-align:center; color:var(--color-text-muted); padding:40px; font-size:14px;">没有列被选中，请在侧边栏选择要显示的列</td></tr>`;
     }
 
     // 更新统计信息
@@ -1288,7 +1288,7 @@ function renderTable() {
     // 根据排序状态显示不同箭头：无排序(↕) -> 升序(▴) -> 降序(▾) -> 无排序(↕)
     const arrow = isSorted ? (sortInfo.state === 'asc' ? ' ▴' : sortInfo.state === 'desc' ? ' ▾' : ' ↕') : ' ↕';
     // 根据排序状态设置复制按钮颜色
-    const copyBtnColor = isSorted ? (sortInfo.state === 'asc' ? 'var(--primary)' : 'var(--accent)') : 'var(--text)';
+    const copyBtnColor = isSorted ? (sortInfo.state === 'asc' ? 'var(--color-primary)' : 'var(--color-primary)') : 'var(--color-text-primary)';
     return `
           <th class="${sortClass}" data-sort-index="${i}">
             <div style="display: flex; align-items: center;">
@@ -3058,12 +3058,12 @@ function showSqlGeneratorInput(filterState, tableNames = []) {
       background: rgba(0,0,0,0.7); display: flex; align-items: center; 
       justify-content: center; z-index: 100000; backdrop-filter: blur(5px);">
       <div class="sql-generator-modal-content" style="
-        background: var(--panel); border-radius: 16px; padding: 24px; 
+        background: var(--color-surface); border-radius: 16px; padding: 24px; 
         width: 90%; max-width: 800px; max-height: 80vh; 
-        overflow: auto; overflow-x: hidden; border: 1px solid var(--border); 
+        overflow: auto; overflow-x: hidden; border: 1px solid var(--color-border); 
         box-shadow: var(--shadow);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-          <h3 style="margin: 0; color: var(--primary); font-size: 18px; font-weight: 600;">🔧 SQL生成器</h3>
+          <h3 style="margin: 0; color: var(--color-primary); font-size: 18px; font-weight: 600;">🔧 SQL生成器</h3>
           <button id="closeSqlGenModal" class="btn" style="
             background: rgba(239, 68, 68, 0.1); color: #ef4444; 
             border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 6px 12px; 
@@ -3074,23 +3074,23 @@ function showSqlGeneratorInput(filterState, tableNames = []) {
         
         ${canAutoFill ? `
         <!-- 当有自动提取的表名时，隐藏表名输入，直接显示提示信息 -->
-        <div style="margin-bottom: 20px; padding: 12px; background: rgba(59, 130, 246, 0.1); border-radius: 8px; color: var(--secondary); font-size: 14px; border-left: 4px solid #3b82f6;">
+        <div style="margin-bottom: 20px; padding: 12px; background: rgba(59, 130, 246, 0.1); border-radius: 8px; color: var(--color-secondary); font-size: 14px; border-left: 4px solid #3b82f6;">
           ${isJoinQueryDetected ? '检测到联表查询，已自动使用提取的表名生成SQL' : `已从现有SQL中自动提取表名: <strong>${escapeHtml(defaultTableName)}</strong>`}
         </div>
         ` : `
         <!-- 当没有自动提取的表名时，显示表名输入 -->
         <div style="margin-bottom: 24px;">
-          <label for="tableNameInput" style="display: block; margin-bottom: 8px; color: var(--text); font-weight: 500; font-size: 14px;">表名:</label>
+          <label for="tableNameInput" style="display: block; margin-bottom: 8px; color: var(--color-text-primary); font-weight: 500; font-size: 14px;">表名:</label>
           <input type="text" id="tableNameInput" value="${escapeHtml(defaultTableName)}" placeholder="请输入表名" style="
-            width: 100%; padding: 12px; border: 1px solid var(--border); 
-            border-radius: 8px; background: var(--input-bg); color: var(--text);
+            width: 100%; padding: 12px; border: 1px solid var(--color-border); 
+            border-radius: 8px; background: var(--color-surface); color: var(--color-text-primary);
             font-size: 14px; margin-bottom: 8px; transition: border-color 0.2s ease;">
-          <p style="margin: 5px 0; color: var(--secondary); font-size: 12px;">请手动输入表名以生成SQL语句</p>
+          <p style="margin: 5px 0; color: var(--color-secondary); font-size: 12px;">请手动输入表名以生成SQL语句</p>
         </div>
         
         <button id="generateSqlBtnFromModal" class="btn" style="
-          background: var(--primary); color: white; 
-          border: 1px solid var(--border); border-radius: 8px; 
+          background: var(--color-primary); color: white; 
+          border: 1px solid var(--color-border); border-radius: 8px; 
           padding: 14px 24px; margin-bottom: 20px; 
           cursor: pointer; font-size: 15px; width: 100%;
           font-weight: 500; transition: all 0.2s ease; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
@@ -3102,19 +3102,19 @@ function showSqlGeneratorInput(filterState, tableNames = []) {
         <div id="sqlResultsContainer" style="display: none;">
           <div style="margin-bottom: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <h4 style="margin: 0; color: var(--text); font-size: 15px; font-weight: 600; display: flex; align-items: center;">
+              <h4 style="margin: 0; color: var(--color-text-primary); font-size: 15px; font-weight: 600; display: flex; align-items: center;">
                 <span style="display: inline-block; width: 8px; height: 8px; background: #3b82f6; border-radius: 50%; margin-right: 8px;"></span>
                 SELECT 语句:
               </h4>
             </div>
             <textarea id="selectSqlTextarea" style="
               width: 100%; height: 150px; font-family: 'Fira Code', monospace; 
-              font-size: 13px; padding: 14px; border: 1px solid var(--border); 
-              border-radius: 8px; background: var(--card-bg); color: var(--text);
+              font-size: 13px; padding: 14px; border: 1px solid var(--color-border); 
+              border-radius: 8px; background: var(--color-surface); color: var(--color-text-primary);
               resize: vertical; margin: 5px 0; white-space: pre-wrap; overflow: auto;"></textarea>
             <button class="sql-gen-btn select-btn btn" style="
               background: rgba(59, 130, 246, 0.2); color: #3b82f6; 
-              border: 1px solid var(--border); border-radius: 6px; 
+              border: 1px solid var(--color-border); border-radius: 6px; 
               padding: 10px 14px; margin-top: 8px; cursor: pointer; 
               font-size: 13px; transition: all 0.2s ease; font-weight: 500;">
               📋 复制SELECT
@@ -3123,19 +3123,19 @@ function showSqlGeneratorInput(filterState, tableNames = []) {
           
           <div id="insertSqlSection" style="margin-bottom: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <h4 style="margin: 0; color: var(--text); font-size: 15px; font-weight: 600; display: flex; align-items: center;">
+              <h4 style="margin: 0; color: var(--color-text-primary); font-size: 15px; font-weight: 600; display: flex; align-items: center;">
                 <span style="display: inline-block; width: 8px; height: 8px; background: #10b981; border-radius: 50%; margin-right: 8px;"></span>
                 INSERT 语句:
               </h4>
             </div>
             <textarea id="insertSqlTextarea" style="
               width: 100%; height: 150px; font-family: 'Fira Code', monospace; 
-              font-size: 13px; padding: 14px; border: 1px solid var(--border); 
-              border-radius: 8px; background: var(--card-bg); color: var(--text);
+              font-size: 13px; padding: 14px; border: 1px solid var(--color-border); 
+              border-radius: 8px; background: var(--color-surface); color: var(--color-text-primary);
               resize: vertical; margin: 5px 0; white-space: pre-wrap; overflow: auto;"></textarea>
             <button class="sql-gen-btn insert-btn btn" style="
               background: rgba(16, 185, 129, 0.2); color: #10b981; 
-              border: 1px solid var(--border); border-radius: 6px; 
+              border: 1px solid var(--color-border); border-radius: 6px; 
               padding: 10px 14px; margin-top: 8px; cursor: pointer; 
               font-size: 13px; transition: all 0.2s ease; font-weight: 500;">
               📋 复制INSERT
@@ -3144,19 +3144,19 @@ function showSqlGeneratorInput(filterState, tableNames = []) {
           
           <div id="deleteSqlSection" style="margin-bottom: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <h4 style="margin: 0; color: var(--text); font-size: 15px; font-weight: 600; display: flex; align-items: center;">
+              <h4 style="margin: 0; color: var(--color-text-primary); font-size: 15px; font-weight: 600; display: flex; align-items: center;">
                 <span style="display: inline-block; width: 8px; height: 8px; background: #ef4444; border-radius: 50%; margin-right: 8px;"></span>
                 DELETE 语句:
               </h4>
             </div>
             <textarea id="deleteSqlTextarea" style="
               width: 100%; height: 150px; font-family: 'Fira Code', monospace; 
-              font-size: 13px; padding: 14px; border: 1px solid var(--border); 
-              border-radius: 8px; background: var(--card-bg); color: var(--text);
+              font-size: 13px; padding: 14px; border: 1px solid var(--color-border); 
+              border-radius: 8px; background: var(--color-surface); color: var(--color-text-primary);
               resize: vertical; margin: 5px 0; white-space: pre-wrap; overflow: auto;"></textarea>
             <button class="sql-gen-btn delete-btn btn" style="
               background: rgba(239, 68, 68, 0.2); color: #ef4444; 
-              border: 1px solid var(--border); border-radius: 6px; 
+              border: 1px solid var(--color-border); border-radius: 6px; 
               padding: 10px 14px; margin-top: 8px; cursor: pointer; 
               font-size: 13px; transition: all 0.2s ease; font-weight: 500;">
               📋 复制DELETE
@@ -3422,10 +3422,10 @@ function showSqlGenerationOptions(selectSql, insertSql, deleteSql) {
       <div style="
         background: var(--panel); border-radius: 12px; padding: 20px; 
         width: 90%; max-width: 800px; max-height: 80vh; 
-        overflow: auto; border: 1px solid var(--border); 
+        overflow: auto; border: 1px solid var(--color-border); 
         box-shadow: var(--shadow);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-          <h3 style="margin: 0; color: var(--primary);">🔧 SQL生成器</h3>
+          <h3 style="margin: 0; color: var(--color-primary);">🔧 SQL生成器</h3>
           <button id="closeSqlGenModal" style="
             background: rgba(239, 68, 68, 0.1); color: #ef4444; 
             border: none; border-radius: 6px; padding: 5px 10px; 
@@ -3434,48 +3434,48 @@ function showSqlGenerationOptions(selectSql, insertSql, deleteSql) {
         
         <div style="margin-bottom: 15px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-            <h4 style="margin: 0; color: var(--text);">SELECT 语句:</h4>
+            <h4 style="margin: 0; color: var(--color-text-primary);">SELECT 语句:</h4>
           </div>
           <textarea id="selectSqlTextarea" style="
             width: 100%; height: 150px; font-family: 'Fira Code', monospace; 
-            font-size: 12px; padding: 12px; border: 1px solid var(--border); 
-            border-radius: 8px; background: var(--card-bg); color: var(--text);
+            font-size: 12px; padding: 12px; border: 1px solid var(--color-border); 
+            border-radius: 8px; background: var(--color-surface); color: var(--color-text-primary);
             resize: vertical; margin: 5px 0; white-space: pre-wrap; overflow: auto;">${escapeHtml(formattedSelectSql)}</textarea>
           <button class="sql-gen-btn select-btn" style="
             background: rgba(59, 130, 246, 0.2); color: #3b82f6; 
-            border: 1px solid var(--border); border-radius: 6px; 
+            border: 1px solid var(--color-border); border-radius: 6px; 
             padding: 8px 12px; margin-top: 8px; cursor: pointer; 
             font-size: 13px;">复制SELECT</button>
         </div>
         
         <div style="margin-bottom: 15px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-            <h4 style="margin: 0; color: var(--text);">INSERT 语句:</h4>
+            <h4 style="margin: 0; color: var(--color-text-primary);">INSERT 语句:</h4>
           </div>
           <textarea id="insertSqlTextarea" style="
             width: 100%; height: 150px; font-family: 'Fira Code', monospace; 
-            font-size: 12px; padding: 12px; border: 1px solid var(--border); 
-            border-radius: 8px; background: var(--card-bg); color: var(--text);
+            font-size: 12px; padding: 12px; border: 1px solid var(--color-border); 
+            border-radius: 8px; background: var(--color-surface); color: var(--color-text-primary);
             resize: vertical; margin: 5px 0; white-space: pre-wrap; overflow: auto;">${escapeHtml(formattedInsertSql)}</textarea>
           ${insertSqlToShow.startsWith('❌') ? '' : `<button class="sql-gen-btn insert-btn" style="
             background: rgba(16, 185, 129, 0.2); color: #10b981; 
-            border: 1px solid var(--border); border-radius: 6px; 
+            border: 1px solid var(--color-border); border-radius: 6px; 
             padding: 8px 12px; margin-top: 8px; cursor: pointer; 
             font-size: 13px;">复制INSERT</button>`}
         </div>
         
         <div style="margin-bottom: 15px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-            <h4 style="margin: 0; color: var(--text);">DELETE 语句:</h4>
+            <h4 style="margin: 0; color: var(--color-text-primary);">DELETE 语句:</h4>
           </div>
           <textarea id="deleteSqlTextarea" style="
             width: 100%; height: 150px; font-family: 'Fira Code', monospace; 
-            font-size: 12px; padding: 12px; border: 1px solid var(--border); 
-            border-radius: 8px; background: var(--card-bg); color: var(--text);
+            font-size: 12px; padding: 12px; border: 1px solid var(--color-border); 
+            border-radius: 8px; background: var(--color-surface); color: var(--color-text-primary);
             resize: vertical; margin: 5px 0; white-space: pre-wrap; overflow: auto;">${escapeHtml(formattedDeleteSql)}</textarea>
           ${deleteSqlToShow.startsWith('❌') ? '' : `<button class="sql-gen-btn delete-btn" style="
             background: rgba(239, 68, 68, 0.2); color: #ef4444; 
-            border: 1px solid var(--border); border-radius: 6px; 
+            border: 1px solid var(--color-border); border-radius: 6px; 
             padding: 8px 12px; margin-top: 8px; cursor: pointer; 
             font-size: 13px;">复制DELETE</button>`}
         </div>
