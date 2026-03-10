@@ -740,7 +740,8 @@ function updateGlobalDataAndRender(newHeaders, newRows) {
 // 改进的表格解析函数，能够处理包含换行符的单元格
 function parseTableAdvanced(text) {
   console.log('开始解析表格文本，总长度:', text.length);
-  const lines = text.split('\n');
+  // 使用更稳健的方式分割行，支持 \n, \r\n 和 \r
+  const lines = text.split(/\r?\n|\r/);
   console.log('分割为', lines.length, '行');
 
   const result = [];
@@ -750,10 +751,12 @@ function parseTableAdvanced(text) {
   for (let j = 0; j < lines.length; j++) {
     const line = lines[j];
     const trimmed = line.trim();
-    allLines.push({ index: j, line: trimmed, original: line });
+    if (trimmed) {
+      allLines.push({ index: j, line: trimmed, original: line });
+    }
   }
 
-  console.log('总共', allLines.length, '行待处理');
+  console.log('总共', allLines.length, '个非空行待处理');
 
   // 寻找标准的Markdown表格格式：表头 + 分隔行 + 数据行
   let headerIndex = -1;
@@ -765,16 +768,13 @@ function parseTableAdvanced(text) {
     const currentLine = allLines[i].line;
     const nextLine = allLines[i + 1].line;
 
-    // 检查当前行是否为表格行（以|开头和结尾）
-    if (currentLine.startsWith('|') && currentLine.endsWith('|')) {
-      // 检查下一行是否为分隔行（包含-和|，看起来像:--|:--:|--:，或者 MySQL 的 +---+）
-      if (nextLine.match(/^\s*\|[+\-:\s|]+\|?\s*$/) ||
-        nextLine.match(/^\s*\|[\-\s:|]+\|?\s*$/) ||
-        nextLine.match(/^\s*[+\-\s|:]+\s*$/)) {
-        // 这是一个标准的Markdown表格格式
+    // 检查当前行是否可能为表头（包含 |）
+    if (currentLine.includes('|')) {
+      // 检查下一行是否为分隔行（包含 - 和 + 或 |，看起来像分隔符）
+      if (nextLine.match(/^\s*[+\-\s|:]+\s*$/) && (nextLine.includes('-') || nextLine.includes('+'))) {
         headerIndex = i;
         separatorIndex = i + 1;
-        firstDataIndex = i + 2; // 数据从分隔行之后开始
+        firstDataIndex = i + 2;
         break;
       }
     }
@@ -790,18 +790,17 @@ function parseTableAdvanced(text) {
     // 非标准格式，尝试找到最合适的表头
     console.log('未找到标准Markdown表格格式，尝试寻找最可能的表头');
 
-    // 寻找第一个表格行作为表头
+    // 寻找第一个包含多个 | 的行作为表头
     for (let i = 0; i < allLines.length; i++) {
       const line = allLines[i].line;
-      if (line.startsWith('|') && line.endsWith('|') &&
-        !line.match(/^\s*\|[+\-:\s|]+\|?\s*$/) &&  // 不是分隔行
-        !line.match(/^\s*\|[\-\s:|]+\|?\s*$/) &&
-        !line.match(/^\s*[+\-\s|:]+\s*$/)) {
-        headerIndex = i;
+      if (line.includes('|') && !line.match(/^\s*[+\-\s|:]+\s*$/)) {
         headerCells = parseTableLine(line);
-        firstDataIndex = i + 1;
-        console.log('选择第', i, '行为表头，解析结果:', headerCells);
-        break;
+        if (headerCells.length > 1) {
+          headerIndex = i;
+          firstDataIndex = i + 1;
+          console.log('选择第', i, '行为表头，解析结果:', headerCells);
+          break;
+        }
       }
     }
 
@@ -829,49 +828,45 @@ function parseTableAdvanced(text) {
       continue;
     }
 
-    // 只要是以 | 开头的行，我们就尝试作为一个新行的开始
-    if (currentLine.startsWith('|')) {
+    // 只要是包含 | 的行，我们就尝试作为一个新行的开始
+    if (currentLine.includes('|')) {
       let reconstructedLine = currentLine;
       let parsedCells = parseTableLine(reconstructedLine);
       i++;
 
-      // 贪婪合并：如果当前解析出的列数不足，或者行没有以 | 结尾，就继续合并后续行
-      // 但要防止无限合并，如果下一行看起来像是一个全新的行（列数匹配且以|开头和结尾），或者遇到边框，则停止
+      // 贪婪合并：如果当前解析出的列数不足，且下一行不以 | 开头，就继续合并后续行（处理单元格内换行）
+      // 如果下一行以 | 开头，我们认为它是一个新的数据行，应该停止合并
       while (i < allLines.length) {
         const nextLine = allLines[i].line;
 
-        // 如果遇到边框行或空行，停止合并
-        if (!nextLine || (nextLine.includes('+') && !nextLine.match(/[a-zA-Z0-9]/))) {
+        // 如果遇到边框行、空行或以 | 开头的行，停止合并
+        if (!nextLine ||
+          (nextLine.includes('+') && !nextLine.match(/[a-zA-Z0-9]/)) ||
+          nextLine.startsWith('|')) {
           break;
-        }
-
-        // 如果当前已经达到或超过预期列数，且当前行已经以 | 结尾，
-        // 并且下一行看起来像是一个新的完整行，则停止合并
-        if (parsedCells.length >= headerCells.length && reconstructedLine.endsWith('|')) {
-          if (nextLine.startsWith('|') && nextLine.endsWith('|')) {
-            const nextParsed = parseTableLine(nextLine);
-            if (nextParsed.length === headerCells.length) {
-              break;
-            }
-          }
         }
 
         // 继续合并
         reconstructedLine += ' ' + nextLine;
         parsedCells = parseTableLine(reconstructedLine);
         i++;
-
-        // 如果合并后达到了预期的列数且以 | 结尾，通常这就是一个完整的行了
-        if (parsedCells.length === headerCells.length && reconstructedLine.endsWith('|')) {
-          break;
-        }
       }
 
       // 最终检查解析出的单元格
-      if (parsedCells.length === headerCells.length) {
+      if (parsedCells.length > 0) {
+        // 如果列数不匹配，进行自动填充或截断，以保证表格结构正确
+        if (parsedCells.length < headerCells.length) {
+          console.log(`数据行列数不足，已自动填充空单元格: ${parsedCells.length} vs ${headerCells.length}`);
+          while (parsedCells.length < headerCells.length) {
+            parsedCells.push('');
+          }
+        } else if (parsedCells.length > headerCells.length) {
+          console.log(`数据行列数过多，已自动截断: ${parsedCells.length} vs ${headerCells.length}`);
+          parsedCells = parsedCells.slice(0, headerCells.length);
+        }
         result.push(parsedCells);
       } else {
-        console.log(`跳过数据行，列数不匹配: ${parsedCells.length} vs ${headerCells.length}`);
+        console.log(`跳过空行或无效表格行`);
       }
     } else {
       // 非表格行，跳过
@@ -904,7 +899,7 @@ function parseTableLine(line) {
       const char = content[i];
 
       // 检查是否是引号开始/结束
-      if ((char === '\'"' || char === "'") && (i === 0 || content[i - 1] !== '\\')) {
+      if ((char === '"' || char === "'") && (i === 0 || content[i - 1] !== '\\')) {
         if (!inQuotes) {
           inQuotes = true;
           quoteChar = char;
